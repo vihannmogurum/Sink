@@ -2,6 +2,8 @@
 
 **YOU ARE ONE OF 5 PARALLEL AI AGENTS WORKING ON PROJECT 'SINK'. DO NOT WRITE, REFACTOR, OR DELETE ANY CODE UNTIL YOU HAVE READ BOTH `AGENTS.md` AND `AGENT_SYNC.md` IN FULL.**
 
+All 5 agents operate through Antigravity (AGY) and Claude Code. `AGENTS.md` and `AGENT_SYNC.md` are the single source of truth for every agent.
+
 ## 5-Agent Execution Loop (Mandatory)
 
 1. **Pre-Flight:** Before starting any user prompt, run `git pull --rebase` and read `AGENT_SYNC.md` to check active module locks, port assignments, and canonical schemas.
