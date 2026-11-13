@@ -4,6 +4,7 @@ import { LatLngExpression } from 'leaflet';
 import { GraphTopology, TelemetryTick, EdgeTelemetry, ForecastUpdate } from '../../schemas/contracts';
 import { getEdgeColor, createIntersectionIcon, createAnomalyIcon } from '../../utils/mapUtils';
 import { useTrafficHud } from '../../context/TrafficHudContext';
+import roadGeometryData from '../../utils/hyderabad_road_geometry.json';
 
 interface SinkMapCanvasProps {
   graph: GraphTopology | null;
@@ -168,10 +169,16 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           const target = nodeMap.get(edge.target_node_id);
           if (!source || !target) return null;
 
-          const positions: LatLngExpression[] = [
-            [source.lat, source.lng],
-            [target.lat, target.lng],
-          ];
+          // Lookup real road geometry points that follow the exact Hyderabad street curves
+          const cleanEdgeId = edge.edge_id.replace('_rev', '');
+          const roadPoints = (roadGeometryData as unknown as Record<string, [number, number][]>)[cleanEdgeId];
+
+          const positions: LatLngExpression[] = (roadPoints && roadPoints.length > 0)
+            ? (edge.edge_id.includes('_rev') ? [...roadPoints].reverse() : roadPoints)
+            : [
+                [source.lat, source.lng],
+                [target.lat, target.lng],
+              ];
 
           const telemetry = telemetryMap.get(edge.edge_id);
           const isEmergency = emergencyEdgeIds.includes(edge.edge_id);
