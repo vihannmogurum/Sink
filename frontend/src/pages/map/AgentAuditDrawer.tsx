@@ -25,6 +25,18 @@ interface AgentAuditDrawerProps {
   decisions: AgentDecision[];
 }
 
+// 1-to-1 canonical edge to camera map for Hyderabad
+const EDGE_TO_CAMERA: Record<string, { id: string; name: string }> = {
+  edge_punjagutta_banjara: { id: 'CAM-HYD-01', name: 'Punjagutta Central Flyover' },
+  edge_banjara_jubilee: { id: 'CAM-HYD-02', name: 'Banjara Hills Rd No. 2' },
+  edge_jubilee_hitec: { id: 'CAM-HYD-03', name: 'HITEC City Cyber Towers' },
+  edge_hitec_gachibowli: { id: 'CAM-HYD-04', name: 'Gachibowli Bio-Diversity' },
+  edge_banjara_apollo_preemption: { id: 'CAM-HYD-05', name: 'Apollo Trauma Preemption' },
+  edge_jubilee_apollo_link: { id: 'CAM-HYD-06', name: 'Film Nagar Apollo Link' },
+  edge_punjagutta_jubilee_bypass: { id: 'CAM-HYD-07', name: 'Road No. 36 Direct Express' },
+  edge_begumpet_punjagutta: { id: 'CAM-HYD-08', name: 'Begumpet Airport Spine' },
+};
+
 export const AgentAuditDrawer: React.FC<AgentAuditDrawerProps> = ({
   edge,
   telemetry,
@@ -56,17 +68,11 @@ export const AgentAuditDrawer: React.FC<AgentAuditDrawerProps> = ({
     { time: '+30m', speed: speed30m },
   ];
 
-  // Determine closest camera ID based on edge
-  let cameraId = 'CAM-HYD-01';
-  if (edge.edge_id.includes('hitec') || edge.edge_id.includes('cyber')) {
-    cameraId = 'CAM-HYD-02';
-  } else if (edge.edge_id.includes('ameerpet') || edge.edge_id.includes('begumpet')) {
-    cameraId = 'CAM-HYD-03';
-  } else if (edge.edge_id.includes('banjara')) {
-    cameraId = 'CAM-HYD-04';
-  } else if (edge.edge_id.includes('gachibowli')) {
-    cameraId = 'CAM-HYD-05';
-  }
+  // Lookup exact camera metadata for the clicked edge
+  const cleanEdgeId = edge.edge_id.replace('_rev', '');
+  const camMeta = EDGE_TO_CAMERA[cleanEdgeId] || { id: 'CAM-HYD-01', name: 'Punjagutta Central Flyover' };
+  const cameraId = camMeta.id;
+  const cameraName = camMeta.name;
 
   return (
     <div className="absolute top-0 right-0 z-[500] h-full w-96 bg-slate-950/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl flex flex-col text-slate-100 select-none animate-slideLeft">
@@ -97,7 +103,7 @@ export const AgentAuditDrawer: React.FC<AgentAuditDrawerProps> = ({
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 bg-slate-950/80">
             <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-emerald-400">
               <Camera className="h-3.5 w-3.5" />
-              <span>LIVE GOD'S EYE CV // {cameraId}</span>
+              <span>LIVE CV // {cameraId} ({cameraName})</span>
             </div>
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
@@ -105,10 +111,9 @@ export const AgentAuditDrawer: React.FC<AgentAuditDrawerProps> = ({
             <img
               src={`http://localhost:8000/api/v1/cameras/${cameraId}/frame?t=${Date.now()}`}
               alt={`Live Camera Feed ${cameraId}`}
-              key={`${cameraId}-${Date.now()}`}
+              key={`${cameraId}-${edge.edge_id}`}
               className="h-full w-full object-cover"
               onError={(e) => {
-                // Fallback graceful graphic if API is disconnected
                 (e.target as HTMLElement).style.display = 'none';
               }}
             />

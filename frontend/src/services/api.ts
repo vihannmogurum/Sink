@@ -30,12 +30,16 @@ export interface CameraNode {
   camera_id: string;
   name: string;
   edge_id: string;
+  road_name?: string;
   lat: number;
   lng: number;
+  lane_count?: number;
+  heading?: number;
   stream_url: string;
   status: string;
   last_vehicle_count: number;
   last_speed_kmh: number;
+  active_hazard?: string | null;
   last_ping: number;
 }
 
@@ -165,9 +169,10 @@ export async function fetchLiveKpis(): Promise<SystemKpis> {
 /**
  * Fetch Camera Nodes from StateStore
  */
-export async function fetchCameraNodes(): Promise<CameraNode[]> {
+export async function fetchCameraNodes(edgeIds?: string[]): Promise<CameraNode[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/cameras`, {
+    const query = edgeIds && edgeIds.length > 0 ? `?edge_ids=${encodeURIComponent(edgeIds.join(','))}` : '';
+    const res = await fetch(`${API_BASE_URL}/api/v1/cameras${query}`, {
       signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {

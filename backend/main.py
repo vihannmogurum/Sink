@@ -144,9 +144,12 @@ async def get_kpis():
     return success_envelope(store.get_live_system_kpis())
 
 @app.get("/api/v1/cameras")
-async def get_cameras():
-    """Return live God's Eye camera node list."""
-    return success_envelope(store.get_all_cameras())
+async def get_cameras(edge_ids: Optional[str] = Query(None)):
+    """Return live God's Eye camera node list, optionally filtered by edge_ids."""
+    edges_list = None
+    if edge_ids:
+        edges_list = [e.strip() for e in edge_ids.split(",") if e.strip()]
+    return success_envelope(store.get_all_cameras(edge_ids=edges_list))
 
 @app.get("/api/v1/cameras/{camera_id}/frame")
 async def get_camera_frame(camera_id: str):

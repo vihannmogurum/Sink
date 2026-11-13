@@ -110,6 +110,11 @@ export const TrafficMapPage: React.FC = () => {
       {/* Floating Route Search Bars (Current Location & Destination) */}
       <RouteSearchBar
         graph={graph}
+        onClearRoute={() => {
+          setEmergencyEdgeIds([]);
+          setActionNotice('Emergency corridor cleared. Returned to ambient grid.');
+          setTimeout(() => setActionNotice(null), 3000);
+        }}
         onDispatchRoute={async (orig, dest) => {
           if (!graph) return;
           try {
@@ -139,11 +144,12 @@ export const TrafficMapPage: React.FC = () => {
         isEmergencyActive={emergencyEdgeIds.length > 0}
       />
 
-      {/* Floating Left Incident Feed (Hidden in dispatch selection mode) */}
+      {/* Floating Left Incident Feed / Route Corridor Cameras */}
       {!dispatchMode && (
         <IncidentFeed
           anomalies={latestTick?.cv_anomalies || []}
           graph={graph}
+          activeRouteEdgeIds={emergencyEdgeIds}
         />
       )}
 
@@ -159,7 +165,10 @@ export const TrafficMapPage: React.FC = () => {
       {/* Floating Chaos Dock (Bottom Centered) */}
       {!dispatchMode && (
         <ChaosDock
-          activeEdgeId={selectedEdgeId || (graph?.edges[0]?.edge_id ?? 'edge_market_arterial_1')}
+          activeEdgeId={selectedEdgeId}
+          onPromptSelectEdge={() => {
+            setActionNotice('Select a road edge on the map to target with Chaos Engine.');
+          }}
           onIncidentInjected={(_id, msg) => {
             setActionNotice(msg);
             setTimeout(() => setActionNotice(null), 5000);

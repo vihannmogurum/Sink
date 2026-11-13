@@ -94,89 +94,150 @@ class StateStore:
                 camera_id TEXT PRIMARY KEY,
                 name TEXT,
                 edge_id TEXT,
+                road_name TEXT,
                 lat REAL,
                 lng REAL,
+                lane_count INTEGER,
+                heading INTEGER,
                 stream_url TEXT,
                 status TEXT,
                 last_vehicle_count INTEGER,
                 last_speed_kmh REAL,
+                active_hazard TEXT,
                 last_ping REAL
             );
             """)
         conn.close()
 
     def _seed_camera_nodes(self) -> None:
+        # 8 distinct cameras bound 1-to-1 with every Hyderabad edge
         initial_cams = [
             {
                 "camera_id": "CAM-HYD-01",
                 "name": "Punjagutta Central Flyover Cam",
                 "edge_id": "edge_punjagutta_banjara",
+                "road_name": "Punjagutta - Banjara Arterial",
                 "lat": 17.4265,
                 "lng": 78.4526,
+                "lane_count": 4,
+                "heading": 215,
                 "stream_url": "/api/v1/cameras/CAM-HYD-01/stream",
                 "status": "online",
                 "last_vehicle_count": 42,
                 "last_speed_kmh": 46.5,
+                "active_hazard": None,
                 "last_ping": time.time()
             },
             {
                 "camera_id": "CAM-HYD-02",
-                "name": "HITEC City Cyber Towers Cam",
-                "edge_id": "edge_jubilee_hitec",
-                "lat": 17.4504,
-                "lng": 78.3808,
+                "name": "Banjara Hills Rd No. 2 Cam",
+                "edge_id": "edge_banjara_jubilee",
+                "road_name": "Banjara Hills Road No. 2",
+                "lat": 17.4223,
+                "lng": 78.4312,
+                "lane_count": 4,
+                "heading": 290,
                 "stream_url": "/api/v1/cameras/CAM-HYD-02/stream",
                 "status": "online",
-                "last_vehicle_count": 68,
-                "last_speed_kmh": 38.2,
+                "last_vehicle_count": 38,
+                "last_speed_kmh": 44.0,
+                "active_hazard": None,
                 "last_ping": time.time()
             },
             {
                 "camera_id": "CAM-HYD-03",
-                "name": "Ameerpet Metro Junction Cam",
-                "edge_id": "edge_begumpet_ameerpet",
-                "lat": 17.4375,
-                "lng": 78.4483,
+                "name": "HITEC City Cyber Towers Cam",
+                "edge_id": "edge_jubilee_hitec",
+                "road_name": "Madhapur - Cyber Towers Spine",
+                "lat": 17.4504,
+                "lng": 78.3808,
+                "lane_count": 6,
+                "heading": 310,
                 "stream_url": "/api/v1/cameras/CAM-HYD-03/stream",
                 "status": "online",
-                "last_vehicle_count": 55,
-                "last_speed_kmh": 32.0,
+                "last_vehicle_count": 65,
+                "last_speed_kmh": 55.0,
+                "active_hazard": None,
                 "last_ping": time.time()
             },
             {
                 "camera_id": "CAM-HYD-04",
-                "name": "Banjara Hills Rd No. 2 Cam",
-                "edge_id": "edge_banjara_jubilee",
-                "lat": 17.4223,
-                "lng": 78.4312,
+                "name": "Gachibowli Bio-Diversity Cam",
+                "edge_id": "edge_hitec_gachibowli",
+                "road_name": "Hitec - Gachibowli Express",
+                "lat": 17.4385,
+                "lng": 78.3615,
+                "lane_count": 6,
+                "heading": 220,
                 "stream_url": "/api/v1/cameras/CAM-HYD-04/stream",
                 "status": "online",
-                "last_vehicle_count": 39,
-                "last_speed_kmh": 44.0,
+                "last_vehicle_count": 58,
+                "last_speed_kmh": 52.4,
+                "active_hazard": None,
                 "last_ping": time.time()
             },
             {
                 "camera_id": "CAM-HYD-05",
-                "name": "Gachibowli Bio-Diversity Junction Cam",
-                "edge_id": "edge_hitec_gachibowli",
-                "lat": 17.4385,
-                "lng": 78.3615,
+                "name": "Apollo Trauma Preemption Cam",
+                "edge_id": "edge_banjara_apollo_preemption",
+                "road_name": "Apollo Emergency Access Rd",
+                "lat": 17.4172,
+                "lng": 78.4124,
+                "lane_count": 3,
+                "heading": 180,
                 "stream_url": "/api/v1/cameras/CAM-HYD-05/stream",
                 "status": "online",
-                "last_vehicle_count": 58,
-                "last_speed_kmh": 52.4,
+                "last_vehicle_count": 28,
+                "last_speed_kmh": 42.0,
+                "active_hazard": None,
                 "last_ping": time.time()
             },
             {
                 "camera_id": "CAM-HYD-06",
-                "name": "Begumpet Flyover North Spine Cam",
+                "name": "Film Nagar Link Cam",
+                "edge_id": "edge_jubilee_apollo_link",
+                "road_name": "Film Nagar Apollo Link",
+                "lat": 17.4245,
+                "lng": 78.4098,
+                "lane_count": 3,
+                "heading": 150,
+                "stream_url": "/api/v1/cameras/CAM-HYD-06/stream",
+                "status": "online",
+                "last_vehicle_count": 30,
+                "last_speed_kmh": 44.0,
+                "active_hazard": None,
+                "last_ping": time.time()
+            },
+            {
+                "camera_id": "CAM-HYD-07",
+                "name": "Road No. 36 Direct Express Cam",
+                "edge_id": "edge_punjagutta_jubilee_bypass",
+                "road_name": "Road No. 36 Direct Bypass",
+                "lat": 17.4291,
+                "lng": 78.4299,
+                "lane_count": 4,
+                "heading": 275,
+                "stream_url": "/api/v1/cameras/CAM-HYD-07/stream",
+                "status": "online",
+                "last_vehicle_count": 45,
+                "last_speed_kmh": 52.0,
+                "active_hazard": None,
+                "last_ping": time.time()
+            },
+            {
+                "camera_id": "CAM-HYD-08",
+                "name": "Begumpet Airport Spine Cam",
                 "edge_id": "edge_begumpet_punjagutta",
+                "road_name": "Begumpet - Punjagutta Flyover",
                 "lat": 17.4442,
                 "lng": 78.4638,
-                "stream_url": "/api/v1/cameras/CAM-HYD-06/stream",
+                "lane_count": 4,
+                "heading": 200,
+                "stream_url": "/api/v1/cameras/CAM-HYD-08/stream",
                 "status": "online",
                 "last_vehicle_count": 48,
                 "last_speed_kmh": 49.1,
+                "active_hazard": None,
                 "last_ping": time.time()
             }
         ]
@@ -187,11 +248,12 @@ class StateStore:
                 self.camera_nodes[cam["camera_id"]] = cam
                 conn.execute("""
                 INSERT OR REPLACE INTO camera_nodes 
-                (camera_id, name, edge_id, lat, lng, stream_url, status, last_vehicle_count, last_speed_kmh, last_ping)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (camera_id, name, edge_id, road_name, lat, lng, lane_count, heading, stream_url, status, last_vehicle_count, last_speed_kmh, active_hazard, last_ping)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    cam["camera_id"], cam["name"], cam["edge_id"], cam["lat"], cam["lng"],
-                    cam["stream_url"], cam["status"], cam["last_vehicle_count"], cam["last_speed_kmh"], cam["last_ping"]
+                    cam["camera_id"], cam["name"], cam["edge_id"], cam["road_name"], cam["lat"], cam["lng"],
+                    cam["lane_count"], cam["heading"], cam["stream_url"], cam["status"],
+                    cam["last_vehicle_count"], cam["last_speed_kmh"], cam["active_hazard"], cam["last_ping"]
                 ))
         conn.close()
 
@@ -199,15 +261,12 @@ class StateStore:
         conn = self._get_connection()
         now = time.time()
         with conn:
-            # Check if telemetry exists
             cur = conn.execute("SELECT COUNT(*) FROM telemetry_history")
             if cur.fetchone()[0] == 0:
-                # Seed hourly historical telemetry across past 24 hours
                 for h in range(24, 0, -1):
                     t = now - (h * 3600)
                     for cam_id, cam in self.camera_nodes.items():
                         hour_val = int((t // 3600) % 24)
-                        # Traffic curve: peak at 9am (hour 9) and 6pm (hour 18)
                         traffic_factor = 1.0 + 0.5 * math.sin((hour_val - 4) * math.pi / 8)
                         vehicles = int(25 * max(0.5, traffic_factor))
                         speed = max(15.0, 55.0 - (vehicles * 0.4))
@@ -217,10 +276,8 @@ class StateStore:
                         VALUES (?, ?, ?, ?, ?, ?)
                         """, (t, cam["edge_id"], speed, vehicles, density, cam_id))
 
-            # Check if agent decisions exist
             cur = conn.execute("SELECT COUNT(*) FROM agent_decisions")
             if cur.fetchone()[0] == 0:
-                # Seed calibration hospital runs for baseline stats
                 sample_runs = [
                     ("DEC-CALIB-01", "node_punjagutta_flyover", "node_apollo_hospital_jubilee", 540.0, 342.0, "Apollo Emergency Trauma Corridor preempted along Banjara Hills Rd 2."),
                     ("DEC-CALIB-02", "node_hitec_city_cyber_towers", "node_apollo_hospital_jubilee", 680.0, 428.0, "Cyber Towers to Apollo Trauma green-wave activated across Jubilee Checkpost."),
@@ -313,32 +370,48 @@ class StateStore:
             ))
         conn.close()
 
-    def update_camera_node(self, camera_id: str, vehicle_count: int, speed_kmh: float, status: str = "online") -> None:
+    def update_camera_node(
+        self,
+        camera_id: str,
+        vehicle_count: int,
+        speed_kmh: float,
+        status: str = "online",
+        lane_count: Optional[int] = None,
+        heading: Optional[int] = None,
+        road_name: Optional[str] = None,
+        active_hazard: Optional[str] = None
+    ) -> None:
         now = time.time()
         if camera_id in self.camera_nodes:
             self.camera_nodes[camera_id].update({
                 "last_vehicle_count": vehicle_count,
                 "last_speed_kmh": round(speed_kmh, 1),
                 "last_ping": now,
-                "status": status
+                "status": status,
+                "active_hazard": active_hazard
             })
+            if lane_count:
+                self.camera_nodes[camera_id]["lane_count"] = lane_count
+            if heading:
+                self.camera_nodes[camera_id]["heading"] = heading
+            if road_name:
+                self.camera_nodes[camera_id]["road_name"] = road_name
+
             conn = self._get_connection()
             with conn:
                 conn.execute("""
                 UPDATE camera_nodes 
-                SET last_vehicle_count = ?, last_speed_kmh = ?, last_ping = ?, status = ?
+                SET last_vehicle_count = ?, last_speed_kmh = ?, last_ping = ?, status = ?, active_hazard = ?
                 WHERE camera_id = ?
-                """, (vehicle_count, speed_kmh, now, status, camera_id))
+                """, (vehicle_count, speed_kmh, now, status, active_hazard, camera_id))
             conn.close()
 
     def get_live_system_kpis(self) -> Dict[str, Any]:
         """Compute real dynamic KPIs from SQLite + Graph state. No hardcoded constants."""
         conn = self._get_connection()
         
-        # 1. Active Signals Synced (Total Nodes in Graph)
         active_signals = len(self.graph.nodes) if len(self.graph.nodes) > 0 else 7
 
-        # 2. Avg ETA Savings % across historical emergency dispatches
         cur = conn.execute("SELECT baseline_eta_sec, optimized_eta_sec FROM agent_decisions WHERE baseline_eta_sec > 0")
         rows = cur.fetchall()
         if rows:
@@ -347,16 +420,12 @@ class StateStore:
         else:
             avg_eta_savings_pct = 36.8
 
-        # 3. Detection Latency (ms) from CV loop
         detection_latency_ms = round(self.last_cv_latency_ms, 1)
 
-        # 4. Intersection Throughput Gain %
-        # Computed from preempted signal count vs normal cycle
         overridden_count = len(self.intersection_phase_overrides)
         base_throughput_gain = 22.4 + (overridden_count * 3.2)
         intersection_throughput_gain_pct = round(min(45.0, base_throughput_gain), 1)
 
-        # 5. Hourly incident distribution for analytics
         hourly_distribution = [0] * 24
         cur = conn.execute("""
         SELECT strftime('%H', datetime(timestamp, 'unixepoch', 'localtime')) as hour, COUNT(*) 
@@ -371,7 +440,6 @@ class StateStore:
             except Exception:
                 pass
 
-        # If sparse, compute from incidents table
         cur2 = conn.execute("SELECT COUNT(*) FROM incidents WHERE status = 'active'")
         active_inc_count = cur2.fetchone()[0]
 
@@ -415,13 +483,25 @@ class StateStore:
         conn.close()
         return logs
 
-    def get_all_cameras(self) -> List[Dict[str, Any]]:
+    def get_all_cameras(self, edge_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         cur = conn.execute("""
-        SELECT camera_id, name, edge_id, lat, lng, stream_url, status, last_vehicle_count, last_speed_kmh, last_ping
+        SELECT camera_id, name, edge_id, road_name, lat, lng, lane_count, heading, stream_url, status, last_vehicle_count, last_speed_kmh, active_hazard, last_ping
         FROM camera_nodes
         ORDER BY camera_id ASC
         """)
         cams = [dict(r) for r in cur.fetchall()]
         conn.close()
+
+        if edge_ids:
+            # Filter and order strictly by the requested edge_ids sequence
+            clean_eids = [e.replace("_rev", "") for e in edge_ids]
+            filtered = []
+            for eid in clean_eids:
+                matching = [c for c in cams if c["edge_id"] == eid]
+                for m in matching:
+                    if m not in filtered:
+                        filtered.append(m)
+            return filtered
+
         return cams

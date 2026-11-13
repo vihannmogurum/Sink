@@ -341,6 +341,7 @@ class MultiAgentOrchestrator:
 
         # Inject into GodsEye and StateStore
         self.gods_eye.active_anomalies[cam_id] = inc_data
+        self.gods_eye.active_anomalies[edge_id] = inc_data
         self.store.record_incident(inc_data)
 
         # Trigger CV Watcher
