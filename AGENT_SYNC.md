@@ -76,6 +76,7 @@
 | `AGENT_3` | `POST` | `/incidents/detect` | `{ "telemetry": [object] }` | `{ "incidents": [object], "anomalies_detected": int }` | `LIVE` |
 | `AGENT_3` | `GET` | `/incidents/active` | None | `{ "active_incidents": [object] }` | `LIVE` |
 | `AGENT_3` | `POST` | `/incidents/simulate` | `{ "edge_id": "string", "severity": "string", "incident_type": "string" }` | `{ "incident": object }` | `LIVE` |
+| `AGENT_3` | `GET` | `/incidents/cv-analyze` | `camera_id: str, edge_id: str, simulate_incident: bool` | `{ "camera_id": "string", "collision_detected": bool, "detected_objects": [object] }` | `LIVE` |
 | `AGENT_3` | `POST` | `/routes/optimize` | `{ "origin": "string", "destination": "string", "algorithm": "astar | dijkstra", "alternatives": int }` | `{ "primary_route": object, "alternative_routes": [object] }` | `LIVE` |
 | `AGENT_3` | `POST` | `/routes/emergency-preemption` | `{ "origin": "string", "destination": "string", "vehicle_id": "string", "vehicle_type": "ambulance | fire_truck | police" }` | `{ "corridor": object, "green_wave_actions": [object], "travel_time_saved_pct": float }` | `LIVE` |
 | `AGENT_3` | `GET` | `/graph/network` | None | `{ "nodes": [object], "edges": [object] }` | `LIVE` |

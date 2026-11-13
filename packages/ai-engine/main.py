@@ -22,6 +22,7 @@ from config import settings
 from forecaster.pipeline import CongestionForecaster
 from incident_engine.detector import IncidentDetector
 from incident_engine.mock_feed import generate_mock_telemetry_batch
+from incident_engine.cv_pipeline import CVStreamProcessor
 from routing_engine.optimizer import RouteOptimizer
 from routing_engine.preemption import EmergencyPreemptionEngine
 from routing_engine.road_graph import UrbanRoadGraph
@@ -51,6 +52,7 @@ from schemas.agents_xai import (
 # Initialize Core Services
 road_graph = UrbanRoadGraph()
 forecaster = CongestionForecaster()
+cv_processor = CVStreamProcessor()
 incident_detector = IncidentDetector(
     speed_drop_zscore_threshold=settings.speed_drop_zscore_threshold,
     density_spike_threshold=settings.density_spike_threshold_veh_per_km,
@@ -176,6 +178,12 @@ async def simulate_incident(request: SimulateIncidentRequest) -> dict[str, Any]:
         blocked=blocked,
     )
     return envelope(incident_rec.model_dump())
+
+
+@app.get("/incidents/cv-analyze")
+async def analyze_cv_camera(camera_id: str = "CAM_DOWNTOWN_01", edge_id: str = "EDGE_B_C", simulate_incident: bool = False) -> dict[str, Any]:
+    analysis = cv_processor.process_camera_frame(camera_id=camera_id, edge_id=edge_id, is_incident_frame=simulate_incident)
+    return envelope(analysis.model_dump())
 
 
 @app.delete("/incidents/{edge_id}")
