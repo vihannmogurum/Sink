@@ -23,7 +23,7 @@ export interface SinkSocketState {
 }
 
 export const useSinkSocket = (
-  wsUrl: string = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/state'
+  wsUrl: string = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/live'
 ): SinkSocketState => {
   const [isConnected, setIsConnected] = useState(false);
   const [isMockFallback, setIsMockFallback] = useState(false);
@@ -44,12 +44,10 @@ export const useSinkSocket = (
       setIsConnected(true);
       setConnectionError('Live server on port 8000 offline. Running in Mock Fallback mode.');
 
-      // Initial synthetic state
       setLatestTick(getMockTelemetryTick());
       setLatestForecast(getMockForecastUpdate());
       setAgentDecisions(getMockAgentDecisions());
 
-      // Periodic synthetic ticks (every 2.5s)
       if (mockIntervalRef.current) clearInterval(mockIntervalRef.current);
       mockIntervalRef.current = window.setInterval(() => {
         if (!unmounted) {
@@ -77,14 +75,53 @@ export const useSinkSocket = (
         setIsMockFallback(false);
         setConnectionError(null);
         if (mockIntervalRef.current) clearInterval(mockIntervalRef.current);
-        console.info('[useSinkSocket] Connected to live backend on port 8000');
+        console.info('[useSinkSocket] Connected to AGENT_2 backend on /ws/live');
       };
 
       ws.onmessage = (event) => {
         if (unmounted) return;
         try {
           const message = JSON.parse(event.data);
-          // Route by event type
+          // 1. Check AGENT_2 event envelopes: { event: "emergency_override" | "route_recalculated" | "incident_detected", payload: {...} }
+          if (message.event === 'emergency_override' || message.event === 'route_recalculated') {
+            const decisionPayload: AgentDecision = {
+              decision_id: `DEC_${Date.now()}`,
+              agent_id: 'AGENT_2',
+              decision_type: message.event === 'emergency_override' ? 'emergency_preemption' : 'dynamic_reroute',
+              target_entity_id: message.payload?.route?.[0] || 'grid_route',
+              action_parameters: message.payload || {},
+              explanation_xai: {
+                rationale: message.payload?.reason || 'Route recalculated dynamically by Dijkstra engine.',
+                primary_factors: [`Travel time: ${message.payload?.total_weight || 0} min`, 'Dijkstra shortest path'],
+                expected_delay_reduction_pct: 35.0,
+                safety_confidence: 0.98,
+              },
+              status: 'active',
+              created_at: message.timestamp || new Date().toISOString(),
+            };
+            setAgentDecisions((prev) => [decisionPayload, ...prev.slice(0, 49)]);
+          } else if (message.event === 'incident_detected') {
+            // Incorporate anomaly into tick stream
+            setLatestTick((prev) => {
+              if (!prev) return getMockTelemetryTick();
+              return {
+                ...prev,
+                cv_anomalies: [
+                  {
+                    anomaly_id: `anom_${Date.now()}`,
+                    edge_id: message.payload.edge_id,
+                    type: message.payload.type || 'sudden_braking',
+                    severity: message.payload.severity || 'high',
+                    confidence_score: 0.95,
+                    detected_at: new Date().toISOString(),
+                  },
+                  ...prev.cv_anomalies,
+                ],
+              };
+            });
+          }
+
+          // 2. Also check standard telemetry/forecast message types
           if (message.type === 'telemetry_tick') {
             const parsed = telemetry_tick_schema.safeParse(message.payload);
             if (parsed.success) setLatestTick(parsed.data);
