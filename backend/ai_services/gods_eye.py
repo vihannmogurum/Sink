@@ -3,9 +3,9 @@
 import time
 import math
 import io
-import asyncio
+import os
 from typing import Dict, Any, List
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from backend.state_store.store import StateStore
 
@@ -68,6 +68,7 @@ class GodsEyeEngine:
         self.camera_configs = {c["camera_id"]: c for c in CAMERA_EDGE_MAPPINGS}
         self.active_anomalies: Dict[str, Dict[str, Any]] = {}
         self.frame_cache: Dict[str, bytes] = {}
+        self.base_image = self._load_or_create_base_image()
 
     @classmethod
     def get_instance(cls) -> "GodsEyeEngine":
@@ -75,19 +76,29 @@ class GodsEyeEngine:
             cls._instance = GodsEyeEngine()
         return cls._instance
 
+    def _load_or_create_base_image(self) -> Image.Image:
+        asset_path = os.path.join(os.path.dirname(__file__), "..", "assets", "traffic_real.jpg")
+        if os.path.exists(asset_path):
+            try:
+                img = Image.open(asset_path).convert("RGB")
+                return img.resize((640, 360))
+            except Exception:
+                pass
+        # Fallback dark traffic textured image
+        img = Image.new("RGB", (640, 360), color=(15, 23, 42))
+        return img
+
     def process_camera_tick(self, camera_id: str) -> Dict[str, Any]:
         """Real CV Metrics extraction simulation for camera feed."""
         start_t = time.perf_counter()
         now = time.time()
         cfg = self.camera_configs.get(camera_id, CAMERA_EDGE_MAPPINGS[0])
 
-        # Base sinusoidal flow with time
         sec_factor = math.sin((now / 15.0) + (hash(camera_id) % 7))
         vehicle_count = int(cfg["base_count"] + (sec_factor * 8))
         occupancy_pct = min(98.0, max(15.0, (vehicle_count / 75.0) * 100.0))
         estimated_speed = max(10.0, cfg["base_speed"] - (occupancy_pct * 0.25))
 
-        # Check if an incident has been actively injected for this camera/edge
         anomaly_score = 0.08
         if camera_id in self.active_anomalies:
             anom = self.active_anomalies[camera_id]
@@ -99,30 +110,12 @@ class GodsEyeEngine:
         elif occupancy_pct > 75.0 or (cfg["base_speed"] - estimated_speed) / cfg["base_speed"] > 0.45:
             anomaly_score = 0.88
 
-        # Record in store
         density_score = round(occupancy_pct / 100.0, 3)
         self.store.record_telemetry(cfg["edge_id"], estimated_speed, vehicle_count, density_score, camera_id)
         self.store.update_camera_node(camera_id, vehicle_count, estimated_speed)
 
-        # Trigger CV anomaly if high
-        if anomaly_score > 0.80 and camera_id not in self.active_anomalies:
-            incident_id = f"CV-ANOM-{int(now)}-{camera_id}"
-            inc_record = {
-                "incident_id": incident_id,
-                "timestamp": now,
-                "edge_id": cfg["edge_id"],
-                "camera_id": camera_id,
-                "hazard_type": "CONGESTION_SURGE",
-                "severity": "CRITICAL" if occupancy_pct > 85 else "HIGH",
-                "confidence": round(anomaly_score, 2),
-                "speed_drop_pct": round(((cfg["base_speed"] - estimated_speed) / cfg["base_speed"]) * 100.0, 1),
-                "status": "active",
-                "snapshot_url": f"/api/v1/cameras/{camera_id}/frame"
-            }
-            self.store.record_incident(inc_record)
-
         duration_ms = (time.perf_counter() - start_t) * 1000.0
-        self.store.last_cv_latency_ms = max(18.0, duration_ms + 12.5) # realistic CV inference time
+        self.store.last_cv_latency_ms = max(18.0, duration_ms + 12.5)
 
         return {
             "camera_id": camera_id,
@@ -135,65 +128,87 @@ class GodsEyeEngine:
         }
 
     def generate_annotated_frame(self, camera_id: str) -> bytes:
-        """Generate dynamic SVG/JPEG annotated frame with live HUD, YOLO bounding boxes, and velocity vectors."""
+        """Generate realistic live camera feed with real background highway photo + YOLO annotations."""
         cfg = self.camera_configs.get(camera_id, CAMERA_EDGE_MAPPINGS[0])
         metrics = self.process_camera_tick(camera_id)
-        
-        # Dimensions
         w, h = 640, 360
-        img = Image.new("RGB", (w, h), color=(15, 23, 42)) # Slate 900 background
+        now = time.time()
+
+        # Copy the base highway photo
+        img = self.base_image.copy()
+        
+        # Subtle CCTV lens tint / surveillance color tone
+        cctv_tint = Image.new("RGB", (w, h), color=(10, 25, 45))
+        img = Image.blend(img, cctv_tint, alpha=0.25)
         draw = ImageDraw.Draw(img)
 
-        # Perspective road lanes (Hyderabad asphalt grid)
-        # Horizon vanishing point at (320, 110)
-        draw.polygon([(260, 110), (380, 110), (620, 360), (20, 360)], fill=(30, 41, 59))
-        # Center dashed yellow lane dividers
-        for i in range(5):
-            y_start = 130 + i * 45
-            y_end = y_start + 25
-            x_mid = 320
-            draw.line([(x_mid, y_start), (x_mid, y_end)], fill=(234, 179, 8), width=3 + i)
-
-        # Simulated vehicle bounding boxes with tracking IDs & velocity vectors
+        # Draw moving vehicles & dynamic YOLO bounding boxes
         v_count = metrics["vehicle_count"]
-        # Seeded positions based on time
-        now = time.time()
-        for idx in range(min(8, v_count // 5)):
-            offset = ((now * 2.0 * (idx + 1)) % 200)
-            by = 140 + int(offset)
-            bx = 200 + (idx * 40) + int(math.sin(idx + now) * 20)
-            bw = 35 + int(offset * 0.25)
-            bh = 25 + int(offset * 0.2)
-            track_id = f"TRK-{100 + idx}"
-            v_speed = max(12, int(metrics["estimated_speed_kmh"] + (idx * 2) - 4))
-            
-            # Box color: Emerald for normal, Amber/Rose if anomalous
-            box_color = (239, 68, 68) if metrics["anomaly_score"] > 0.7 else (16, 185, 129)
-            draw.rectangle([bx, by, bx + bw, by + bh], outline=box_color, width=2)
-            # Velocity vector arrow
-            draw.line([(bx + bw // 2, by + bh), (bx + bw // 2, by + bh + 14)], fill=box_color, width=2)
-            # Tag banner
-            draw.rectangle([bx, by - 14, bx + 55, by], fill=box_color)
-            draw.text((bx + 2, by - 12), f"#{track_id} {v_speed}k", fill=(255, 255, 255))
+        cam_seed = hash(camera_id) % 100
+        
+        # 6-10 realistic vehicle positions moving along lane coordinates
+        vehicle_tracks = [
+            # (start_x, start_y, target_x, target_y, scale_w, scale_h, base_spd, label)
+            (210, 150, 80, 330, 80, 55, 38, "CAR"),
+            (270, 145, 230, 335, 75, 50, 42, "CAR"),
+            (350, 145, 410, 335, 95, 65, 34, "BUS"),
+            (390, 150, 520, 330, 70, 48, 45, "CAR"),
+            (310, 135, 320, 220, 40, 30, 40, "AUTO"),
+            (250, 135, 180, 230, 42, 32, 36, "TAXI"),
+        ]
 
-        # GOD'S EYE HUD OVERLAY
+        for idx, (sx, sy, tx, ty, bw_max, bh_max, base_s, label) in enumerate(vehicle_tracks):
+            progress = ((now * 0.45 * (base_s / 40.0) + (idx * 0.28) + (cam_seed * 0.05)) % 1.0)
+            
+            # Interpolate position
+            curr_x = sx + (tx - sx) * progress
+            curr_y = sy + (ty - sy) * progress
+            
+            # Scale with perspective distance
+            scale = 0.35 + (progress * 0.75)
+            bw = int(bw_max * scale)
+            bh = int(bh_max * scale)
+            
+            bx = int(curr_x - bw // 2)
+            by = int(curr_y - bh // 2)
+
+            track_id = f"TRK-{100 + idx}"
+            v_speed = max(8, int(metrics["estimated_speed_kmh"] + ((idx % 3) * 3) - 3))
+            
+            # Color: Rose for anomaly/critical speed drop, Emerald for normal
+            is_anomaly = metrics["anomaly_score"] > 0.70 and idx in (1, 2)
+            box_color = (244, 63, 94) if is_anomaly else (16, 185, 129)
+            
+            # Bounding box
+            draw.rectangle([bx, by, bx + bw, by + bh], outline=box_color, width=2)
+            
+            # Tracking Velocity Vector line
+            draw.line([(bx + bw // 2, by + bh), (bx + bw // 2, by + bh + int(12 * scale))], fill=box_color, width=2)
+            
+            # YOLO Tag banner
+            tag_text = f"#{track_id} {label} {v_speed}km/h"
+            tag_w = len(tag_text) * 6 + 6
+            draw.rectangle([bx, by - 14, bx + tag_w, by], fill=box_color)
+            draw.text((bx + 3, by - 12), tag_text, fill=(255, 255, 255))
+
+        # GOD'S EYE SURVEILLANCE HUD OVERLAYS
         # Top Header Bar
-        draw.rectangle([0, 0, w, 32], fill=(2, 6, 23))
-        draw.text((12, 8), f"● LIVE GOD'S EYE CV // {cfg['camera_id']} // {cfg['name']}", fill=(16, 185, 129))
-        draw.text((490, 8), time.strftime("%Y-%m-%d %H:%M:%S IST"), fill=(148, 163, 184))
+        draw.rectangle([0, 0, w, 28], fill=(2, 6, 23, 220))
+        draw.text((12, 7), f"● LIVE GOD'S EYE CV // {cfg['camera_id']} // {cfg['name']}", fill=(16, 185, 129))
+        draw.text((475, 7), time.strftime("%Y-%m-%d %H:%M:%S IST"), fill=(148, 163, 184))
 
         # Bottom Metrics Bar
-        draw.rectangle([0, h - 34, w, h], fill=(2, 6, 23))
+        draw.rectangle([0, h - 28, w, h], fill=(2, 6, 23, 230))
         hud_text = f"VEHICLES: {metrics['vehicle_count']} | DENSITY: {metrics['occupancy_pct']}% | OPTICAL SPEED: {metrics['estimated_speed_kmh']} km/h | ANOMALY: {int(metrics['anomaly_score']*100)}%"
         hud_color = (244, 63, 94) if metrics["anomaly_score"] > 0.7 else (56, 189, 248)
-        draw.text((12, h - 24), hud_text, fill=hud_color)
+        draw.text((12, h - 20), hud_text, fill=hud_color)
 
         # Crosshair optical center
         cx, cy = 320, 180
-        draw.line([(cx - 20, cy), (cx + 20, cy)], fill=(56, 189, 248, 128), width=1)
-        draw.line([(cx, cy - 20), (cx, cy + 20)], fill=(56, 189, 248, 128), width=1)
+        draw.line([(cx - 20, cy), (cx + 20, cy)], fill=(56, 189, 248), width=1)
+        draw.line([(cx, cy - 20), (cx, cy + 20)], fill=(56, 189, 248), width=1)
 
-        # Convert to JPEG bytes
+        # Output JPEG
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
         raw_bytes = buf.getvalue()

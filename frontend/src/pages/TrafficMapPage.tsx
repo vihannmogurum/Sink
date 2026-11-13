@@ -94,10 +94,10 @@ export const TrafficMapPage: React.FC = () => {
     }
   };
 
-  const selectedEdge = graph?.edges.find((e) => e.edge_id === selectedEdgeId) || null;
-  const selectedTelemetry = latestTick?.edge_telemetry.find((t) => t.edge_id === selectedEdgeId) || null;
-  const forecast15 = latestForecast?.horizon_15m.find((h) => h.edge_id === selectedEdgeId) || null;
-  const forecast30 = latestForecast?.horizon_30m.find((h) => h.edge_id === selectedEdgeId) || null;
+  const selectedEdge = graph?.edges?.find((e) => e.edge_id === selectedEdgeId) || null;
+  const selectedTelemetry = latestTick?.edge_telemetry?.find((t) => t.edge_id === selectedEdgeId) || null;
+  const forecast15 = latestForecast?.horizon_15m?.find((h) => h.edge_id === selectedEdgeId) || null;
+  const forecast30 = latestForecast?.horizon_30m?.find((h) => h.edge_id === selectedEdgeId) || null;
 
   return (
     <div className="relative h-[calc(100vh-80px)] w-full overflow-hidden rounded-xl bg-slate-950">
