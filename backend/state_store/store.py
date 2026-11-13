@@ -30,6 +30,7 @@ class StateStore:
 
         self._seed_camera_nodes()
         self._seed_telemetry_and_calibration()
+        self._seed_municipal_users()
 
     @classmethod
     def get_instance(cls) -> "StateStore":
@@ -105,6 +106,17 @@ class StateStore:
                 last_speed_kmh REAL,
                 active_hazard TEXT,
                 last_ping REAL
+            );
+            """)
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS municipal_users (
+                email TEXT PRIMARY KEY,
+                password_hash TEXT,
+                role TEXT,
+                display_name TEXT,
+                jurisdiction TEXT,
+                verified_status TEXT,
+                created_at REAL
             );
             """)
         conn.close()
@@ -256,6 +268,45 @@ class StateStore:
                     cam["last_vehicle_count"], cam["last_speed_kmh"], cam["active_hazard"], cam["last_ping"]
                 ))
         conn.close()
+
+    def _seed_municipal_users(self) -> None:
+        import hashlib
+        default_pwd_hash = hashlib.sha256("password123".encode()).hexdigest()
+        users = [
+            ("operator@hyderabad.traffic.gov.in", default_pwd_hash, "Traffic Operator", "Rohith (Officer)", "Hyderabad Metropolitan Grid", "NIC / GovNet Verified", time.time()),
+            ("dispatcher@hyderabad.traffic.gov.in", default_pwd_hash, "EMS Dispatcher", "EMS Desk Cyberabad", "Cyberabad IT Corridor", "NIC / GovNet Verified", time.time()),
+            ("admin@hyderabad.traffic.gov.in", default_pwd_hash, "System Admin", "SysAdmin Root", "Hyderabad Metropolitan Grid", "NIC / GovNet Verified", time.time()),
+            ("rohith@sink.local", default_pwd_hash, "Traffic Operator", "Rohith", "Hyderabad Metropolitan Grid", "GovNet Verified", time.time()),
+        ]
+        conn = self._get_connection()
+        with conn:
+            for u in users:
+                conn.execute("""
+                INSERT OR IGNORE INTO municipal_users 
+                (email, password_hash, role, display_name, jurisdiction, verified_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, u)
+        conn.close()
+
+    def verify_user(self, email: str, password_plain: str) -> Optional[Dict[str, Any]]:
+        import hashlib
+        pwd_hash = hashlib.sha256(password_plain.encode()).hexdigest()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT email, password_hash, role, display_name, jurisdiction, verified_status FROM municipal_users WHERE email = ?", (email.strip().lower(),))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        if row["password_hash"] != pwd_hash:
+            return None
+        return {
+            "email": row["email"],
+            "role": row["role"],
+            "display_name": row["display_name"],
+            "jurisdiction": row["jurisdiction"],
+            "verified_status": row["verified_status"]
+        }
 
     def _seed_telemetry_and_calibration(self) -> None:
         conn = self._get_connection()

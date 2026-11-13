@@ -7,6 +7,15 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { getCurrentUser } from './services/api';
+
+const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const user = getCurrentUser();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
 
 export const App: React.FC = () => {
   return (
@@ -15,11 +24,18 @@ export const App: React.FC = () => {
         {/* Public Authentication */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Root Redirect to /app/map */}
+        {/* Root Redirect to /app/map if authenticated, else /login */}
         <Route path="/" element={<Navigate to="/app/map" replace />} />
 
         {/* Authenticated Application Shell */}
-        <Route path="/app" element={<AppShell />}>
+        <Route
+          path="/app"
+          element={
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Navigate to="/app/map" replace />} />
           <Route path="map" element={<TrafficMapPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />

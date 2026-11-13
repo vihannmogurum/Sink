@@ -1,9 +1,18 @@
 import React from 'react';
-import { ChevronDown, Bell, Building2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, Bell, Building2, LogOut, ShieldCheck } from 'lucide-react';
 import { useTrafficHud, ActiveCity } from '../../context/TrafficHudContext';
+import { getCurrentUser, logoutUser } from '../../services/api';
 
 export const Topbar: React.FC = () => {
+  const navigate = useNavigate();
   const { selectedCity, setSelectedCity } = useTrafficHud();
+  const currentUser = getCurrentUser();
+
+  const handleLogout = () => {
+    logoutUser();
+    navigate('/login');
+  };
 
   const sectors: ActiveCity[] = [
     'Hyderabad Metropolitan Grid',
@@ -60,14 +69,26 @@ export const Topbar: React.FC = () => {
         <div className="h-5 w-px bg-slate-200" />
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 cursor-pointer">
+        <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white font-medium text-xs">
-            R1
+            {currentUser?.display_name ? currentUser.display_name.slice(0, 2).toUpperCase() : 'OP'}
           </div>
           <div className="hidden md:block text-left">
-            <div className="text-sm font-semibold text-slate-800 leading-tight">Rohith</div>
-            <div className="text-xs text-slate-500">AGENT_1 Operator</div>
+            <div className="text-sm font-semibold text-slate-800 leading-tight">
+              {currentUser?.display_name || 'Rohith'}
+            </div>
+            <div className="text-xs text-slate-500 flex items-center gap-1">
+              <span>{currentUser?.role || 'Traffic Operator'}</span>
+              <ShieldCheck className="h-3 w-3 text-emerald-500" />
+            </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="ml-2 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+            title="Sign out of municipal session"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </header>

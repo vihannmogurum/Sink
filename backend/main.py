@@ -55,8 +55,47 @@ class IncidentInjectRequest(BaseModel):
     hazard_type: str = Field(default="ACCIDENT", alias="type")
     severity: str = "CRITICAL"
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    role: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    keep_signed_in: Optional[bool] = True
+
 def success_envelope(data: Any) -> Dict[str, Any]:
     return {"success": True, "data": data, "error": None}
+
+# -------------------------------------------------------------
+# Authentication Endpoints
+# -------------------------------------------------------------
+@app.post("/api/v1/auth/login")
+async def login_endpoint(req: LoginRequest):
+    """Authenticate municipal operator session against SQLite store."""
+    user = store.verify_user(req.email, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid municipal credentials or password")
+    
+    # Generate session access token
+    session_token = f"SecAuto-{int(time.time())}-{os.urandom(4).hex()}"
+    return success_envelope({
+        "token": session_token,
+        "email": user["email"],
+        "display_name": user["display_name"],
+        "role": req.role if req.role else user["role"],
+        "jurisdiction": req.jurisdiction if req.jurisdiction else user["jurisdiction"],
+        "verified_status": user["verified_status"],
+        "expires_in_hours": 12 if req.keep_signed_in else 2
+    })
+
+@app.get("/api/v1/auth/session")
+async def session_check_endpoint():
+    """Verify session gateway connectivity."""
+    return success_envelope({
+        "status": "active",
+        "gateway": "in-hyd-node-01",
+        "cert": "NIC-GOV-2025",
+        "encryption": "256-BIT SSL ENCRYPTED"
+    })
 
 # -------------------------------------------------------------
 # Background Broadcaster & Orchestrator Tick Loop (Every 2s)

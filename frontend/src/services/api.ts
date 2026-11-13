@@ -326,3 +326,58 @@ export async function dispatchEmergency(
     reason: 'Emergency preemption corridor established to Apollo Hospital Trauma Center.',
   };
 }
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+  role?: string;
+  jurisdiction?: string;
+  keep_signed_in?: boolean;
+}
+
+export interface AuthSession {
+  token: string;
+  email: string;
+  display_name: string;
+  role: string;
+  jurisdiction: string;
+  verified_status: string;
+  expires_in_hours: number;
+}
+
+export async function loginUser(payload: LoginPayload): Promise<{ success: boolean; data?: AuthSession; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({ detail: 'Authentication failed' }));
+      return { success: false, error: errJson.detail || 'Authentication failed' };
+    }
+    const json = await res.json();
+    if (json.success && json.data) {
+      localStorage.setItem('sink_auth_session', JSON.stringify(json.data));
+      return { success: true, data: json.data };
+    }
+    return { success: false, error: 'Unexpected response format' };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network connection failed' };
+  }
+}
+
+export function getCurrentUser(): AuthSession | null {
+  try {
+    const raw = localStorage.getItem('sink_auth_session');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function logoutUser(): void {
+  localStorage.removeItem('sink_auth_session');
+}
+
