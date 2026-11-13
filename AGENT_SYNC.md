@@ -18,7 +18,7 @@
 | `AGENT_2` | Vihann | `/apps/api` | `8000` | `API gateway, WebSocket, Dijkstra routing, emergency preemption` | `IN_PROGRESS` |
 | `AGENT_3` | Madhu | `/packages/ai-engine` | `8001` | `[TBD]` | `IDLE` |
 | `AGENT_4` | Mansi | `/packages/database` | `5432 / 6379` | `[TBD]` | `IDLE` |
-| `AGENT_5` | Shloka | `/packages/shared` & `/src/integrations` | `3001` | `[TBD]` | `IDLE` |
+| `AGENT_5` | Shloka | `/packages/shared` & `/src/integrations` | `3001` | `Multi-agent orchestration, event bus, shared types, XAI logger` | `READY` |
 
 ## Active Module Locks
 
@@ -30,13 +30,68 @@
 
 ### Entity Schemas
 
+All shared types are strictly defined in `packages/shared/types.py` with `snake_case` keys:
+
+#### Node
 ```json
 {
-  "entity_name": {
-    "id": "string",
-    "created_at": "ISO-8601 datetime",
-    "updated_at": "ISO-8601 datetime"
-  }
+  "node_id": "string",
+  "name": "string",
+  "lat": "float",
+  "lng": "float",
+  "node_type": "string",
+  "connected_edges": ["string"]
+}
+```
+
+#### Edge
+```json
+{
+  "edge_id": "string",
+  "from_node": "string",
+  "to_node": "string",
+  "length": "float",
+  "speed_limit": "float",
+  "current_speed": "float",
+  "congestion_level": "float",
+  "is_blocked": "bool",
+  "forecast_15min": "float"
+}
+```
+
+#### Incident
+```json
+{
+  "incident_id": "string",
+  "edge_id": "string",
+  "type": "string",
+  "severity": "string",
+  "description": "string",
+  "timestamp": "ISO-8601 string",
+  "is_resolved": "bool",
+  "affected_vehicles": ["string"]
+}
+```
+
+#### WSEvent (Envelope)
+```json
+{
+  "event": "string",
+  "timestamp": "ISO-8601 string",
+  "payload": {}
+}
+```
+
+#### RouteResult
+```json
+{
+  "vehicle_id": "string",
+  "route": ["string"],
+  "total_distance": "float",
+  "estimated_duration": "float",
+  "priority": "normal | emergency",
+  "reason": "string",
+  "status": "string"
 }
 ```
 
@@ -46,7 +101,7 @@
 {
   "event_name": {
     "channel": "string",
-    "direction": "client_to_server | server_to_client",
+    "direction": "client_to_server | server_to_client | agent_to_agent",
     "payload": {}
   }
 }
@@ -54,9 +109,11 @@
 
 | Event | Channel | Direction | Payload |
 |---|---|---|---|
-| `route_recalculated` | `/ws/live` | `server_to_client` | `{ "route": ["string"], "total_weight": "float", "reason": "string" }` |
-| `emergency_override` | `/ws/live` | `server_to_client` | `{ "route": ["string"], "total_weight": "float", "reason": "string" }` |
-| `incident_detected` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "type": "string", "severity": "string" }` |
+| `route_recalculated` | `/ws/live` | `server_to_client` | `{ "vehicle_id": "string", "route": ["string"], "total_distance": "float", "estimated_duration": "float", "priority": "string", "reason": "string", "status": "string" }` |
+| `emergency_override` | `/ws/live` | `server_to_client` | `{ "vehicle_id": "string", "route": ["string"], "total_distance": "float", "estimated_duration": "float", "priority": "emergency", "reason": "string", "status": "string" }` |
+| `incident_detected` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "type": "string", "severity": "string", "affected_vehicles": ["string"] }` |
+| `congestion_update` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "forecast_15min": "float", "congestion_level": "float" }` |
+| `route_recalculated_trigger` | `internal` | `agent_to_agent` | `{ "edge_id": "string", "type": "string", "severity": "string", "reason": "string", "affected_vehicles": ["string"] }` |
 
 ## Live API Endpoint Registry
 
@@ -80,6 +137,8 @@
 
 ## Chronological Sync & Breaking-Change Log (Append-Only at Top)
 
+- [2026-11-13 11:05] [AGENT_5] Status: READY; module: /packages/shared, /src/integrations; task: Multi-agent orchestration, event bus, shared types, XAI logger.
+- [2026-11-13 10:30] [AGENT_5] Status: IN_PROGRESS; module: /packages/shared, /src/integrations; task: Multi-agent orchestration, event bus, shared types, XAI logger.
 - [2026-11-13 09:40] [AGENT_2] Status: IN_PROGRESS; module: /apps/api; task: API gateway, WebSocket, Dijkstra routing, emergency preemption.
 - [2026-11-12 22:45] [ORCHESTRATOR] Initialized the five-agent synchronization protocol, ownership matrix, canonical contract templates, registries, and onboarding pointers.
 
