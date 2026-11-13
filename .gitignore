@@ -13,3 +13,16 @@ backend/state_store/*.db*
 # Node
 node_modules/
 dist/
+
+# Env & venv
+.env
+.venv/
+env/
+venv/
+
+# DB files
+*.sqlite3
+*.db
+
+# OS
+.DS_Store

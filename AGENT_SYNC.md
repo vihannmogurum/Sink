@@ -16,8 +16,12 @@
 |---|---|---|---|---|---|
 | `AGENT_1` | Rohith | `/frontend` | `3000` | `Full frontend AppShell, Leaflet canvas, dynamic dispatch mode, Hyderabad & SF/Seattle topologies` | `READY` |
 | `AGENT_2` | Vihann | `/apps/api` | `8000` | `API gateway, WebSocket, Dijkstra routing, emergency preemption` | `IN_PROGRESS` |
+<<<<<<< HEAD
 | `AGENT_3` | Madhu | `/packages/ai-engine` | `8001` | `[TBD]` | `IDLE` |
 <<<<<<< HEAD
+=======
+| `AGENT_3` | Madhu | `/packages/ai-engine` | `8001` | `Congestion forecasting, incident CV/sensor detection, adaptive Dijkstra/A* routing, multi-agent XAI` | `IN_PROGRESS` |
+>>>>>>> feat/agent-3-local
 | `AGENT_4` | Mansi | `/packages/database` | `5432 / 6379` | `[TBD]` | `IDLE` |
 | `AGENT_5` | Shloka | `/packages/shared` & `/src/integrations` | `3001` | `Multi-agent orchestration, event bus, shared types, XAI logger` | `READY` |
 =======
@@ -29,9 +33,14 @@
 
 | Directory / Module | Owner Agent | Lock Status | Authorized Collaborators | Notes |
 |---|---|---|---|---|
+<<<<<<< HEAD
 | `/frontend` | `AGENT_1` | `LOCKED` | `AGENT_1` (Rohith) | Locked to Port 3000. Setup Vite + React + TS + Tailwind + AppShell + Leaflet |
 | `/apps/api` | `AGENT_2` | `LOCKED` | `AGENT_2` (Vihann) | FastAPI gateway, routing engine, and live WebSocket broadcaster on Port 8000 |
 | `/packages/database` | `AGENT_4` | `LOCKED` | `AGENT_4` (Mansi) | SQLite schema (nodes, edges, incidents), mock Hyderabad seeder, db.py functions |
+=======
+| `/apps/api` | `AGENT_2` | `LOCKED` | `AGENT_2` | `FastAPI gateway, routing engine, and live WebSocket broadcaster` |
+| `/packages/ai-engine` | `AGENT_3` | `LOCKED` | `AGENT_3` | `Traffic forecasting, incident anomaly detection, adaptive A*/Dijkstra routing, multi-agent XAI` |
+>>>>>>> feat/agent-3-local
 
 ## Canonical Contracts
 
@@ -153,11 +162,19 @@ CREATE TABLE incidents (
 
 | Event | Channel | Direction | Payload |
 |---|---|---|---|
+<<<<<<< HEAD
 | `route_recalculated` | `/ws/live` | `server_to_client` | `{ "vehicle_id": "string", "route": ["string"], "total_distance": "float", "estimated_duration": "float", "priority": "string", "reason": "string", "status": "string" }` |
 | `emergency_override` | `/ws/live` | `server_to_client` | `{ "vehicle_id": "string", "route": ["string"], "total_distance": "float", "estimated_duration": "float", "priority": "emergency", "reason": "string", "status": "string" }` |
 | `incident_detected` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "type": "string", "severity": "string", "affected_vehicles": ["string"] }` |
 | `congestion_update` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "forecast_15min": "float", "congestion_level": "float" }` |
 | `route_recalculated_trigger` | `internal` | `agent_to_agent` | `{ "edge_id": "string", "type": "string", "severity": "string", "reason": "string", "affected_vehicles": ["string"] }` |
+=======
+| `route_recalculated` | `/ws/live` | `server_to_client` | `{ "route": ["string"], "total_weight": "float", "reason": "string" }` |
+| `emergency_override` | `/ws/live` | `server_to_client` | `{ "route": ["string"], "total_weight": "float", "reason": "string" }` |
+| `incident_detected` | `/ws/live` | `server_to_client` | `{ "edge_id": "string", "type": "string", "severity": "string" }` |
+| `traffic_forecast_updated` | `/ws/live` | `server_to_client` | `{ "horizon_minutes": 15, "forecasts": [object] }` |
+| `xai_decision_logged` | `/ws/live` | `server_to_client` | `{ "decision_id": "string", "trigger": "string", "action": "string", "justification": "string" }` |
+>>>>>>> feat/agent-3-local
 
 ## Live API Endpoint Registry
 
@@ -167,10 +184,25 @@ CREATE TABLE incidents (
 | `AGENT_2` | `POST` | `/routes/compute` | `{ "from": "string", "to": "string", "priority": "normal \| emergency" }` | `{ "route": ["string"], "total_weight": "float", "reason": "string" }` | `LIVE` |
 | `AGENT_2` | `GET` | `/routes/{vehicle_id}` | `vehicle_id: string` | `{ "route": ["string"], "total_weight": "float" }` | `LIVE` |
 | `AGENT_2` | `POST` | `/internal/incident` | `{ "edge_id": "string", "type": "string", "severity": "string" }` | `{ "edge_id": "string", "type": "string", "severity": "string" }` | `LIVE` |
+<<<<<<< HEAD
 | `AGENT_2` | `WS` | `/ws/live` | None | Events: `route_recalculated`, `emergency_override`, `incident_detected` | `LIVE` |
 | `AGENT_1` | `GET` | `/api/v1/graph` | none | `{ grid_id, city, timestamp, nodes: [], edges: [] }` | `MOCK / FALLBACK` |
 | `AGENT_1` | `POST` | `/api/v1/incident/inject` | `{ edge_id, type, severity, notes? }` | `{ incident_id, status }` | `MOCK / FALLBACK` |
 | `AGENT_1` | `POST` | `/api/v1/emergency/dispatch` | `{ origin_node_id, destination_node_id, priority_tier, vehicle_type }` | `{ dispatch_id, clear_corridor_active }` | `MOCK / FALLBACK` |
+=======
+| `AGENT_3` | `GET` | `/health` | None | `{ "status": "healthy", "service": "urbanflow-ai-engine", "port": 8001 }` | `LIVE` |
+| `AGENT_3` | `POST` | `/forecast/predict` | `{ "segment_ids": ["string"], "timestamp": "ISO-8601" }` | `{ "forecasts": [object], "horizons": [15, 30] }` | `LIVE` |
+| `AGENT_3` | `GET` | `/forecast/segments` | None | `{ "segments": [object] }` | `LIVE` |
+| `AGENT_3` | `POST` | `/incidents/detect` | `{ "telemetry": [object] }` | `{ "incidents": [object], "anomalies_detected": int }` | `LIVE` |
+| `AGENT_3` | `GET` | `/incidents/active` | None | `{ "active_incidents": [object] }` | `LIVE` |
+| `AGENT_3` | `POST` | `/incidents/simulate` | `{ "edge_id": "string", "severity": "string", "incident_type": "string" }` | `{ "incident": object }` | `LIVE` |
+| `AGENT_3` | `GET` | `/incidents/cv-analyze` | `camera_id: str, edge_id: str, simulate_incident: bool` | `{ "camera_id": "string", "collision_detected": bool, "detected_objects": [object] }` | `LIVE` |
+| `AGENT_3` | `POST` | `/routes/optimize` | `{ "origin": "string", "destination": "string", "algorithm": "astar | dijkstra", "alternatives": int }` | `{ "primary_route": object, "alternative_routes": [object] }` | `LIVE` |
+| `AGENT_3` | `POST` | `/routes/emergency-preemption` | `{ "origin": "string", "destination": "string", "vehicle_id": "string", "vehicle_type": "ambulance | fire_truck | police" }` | `{ "corridor": object, "green_wave_actions": [object], "travel_time_saved_pct": float }` | `LIVE` |
+| `AGENT_3` | `GET` | `/graph/network` | None | `{ "nodes": [object], "edges": [object] }` | `LIVE` |
+| `AGENT_3` | `POST` | `/agents/step` | `{ "simulated_telemetry": [object] }` | `{ "cycle_id": "string", "agent_states": object, "actions_taken": [object], "xai_logs": [object] }` | `LIVE` |
+| `AGENT_3` | `GET` | `/agents/xai-logs` | `limit: int = 50` | `{ "logs": [object], "total": int }` | `LIVE` |
+>>>>>>> feat/agent-3-local
 
 ## Environment Variables Registry (`.env.example` mirror)
 
@@ -187,8 +219,13 @@ CREATE TABLE incidents (
 | `VITE_API_BASE_URL` | `AGENT_1` | `AGENT_1` | REST Base URL (`http://localhost:8000`) |
 | `VITE_WS_URL` | `AGENT_1` | `AGENT_1` | WebSocket URL (`ws://localhost:8000/ws/live`) |
 | `API_PORT` | `AGENT_2` | `/apps/api` | `8000` |
+<<<<<<< HEAD
 | `AI_ENGINE_PORT` | `AGENT_2` | `/apps/api` | `8001` |
 >>>>>>> origin/feat/agent-4-database
+=======
+| `AI_ENGINE_PORT` | `AGENT_2`, `AGENT_3` | `/apps/api`, `/packages/ai-engine` | `8001` |
+| `DB_PATH` | `AGENT_2` | `/apps/api`, `/packages/database` | `./urbanflow.db` |
+>>>>>>> feat/agent-3-local
 | `AGENT5_URL` | `AGENT_2` | `/apps/api` | `http://localhost:3001` |
 | `AGENT5_PORT` | `AGENT_5` | `/src/integrations` | `3001` |
 | `XAI_LOG_PATH` | `AGENT_5` | `/packages/shared` | `./xai_log.jsonl` |
@@ -197,6 +234,7 @@ CREATE TABLE incidents (
 ## Chronological Sync & Breaking-Change Log (Append-Only at Top)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - [2026-11-13 11:05] [AGENT_5] Status: READY; module: /packages/shared, /src/integrations; task: Multi-agent orchestration, event bus, shared types, XAI logger.
 - [2026-11-13 10:30] [AGENT_5] Status: IN_PROGRESS; module: /packages/shared, /src/integrations; task: Multi-agent orchestration, event bus, shared types, XAI logger.
 =======
@@ -204,6 +242,9 @@ CREATE TABLE incidents (
 - [2026-11-13 11:05] [AGENT_4] Status: READY; module: /packages/database; task: Initialized SQLite schema (nodes, edges, incidents), seeded mock Hyderabad road network (14 nodes, 20 edges), and implemented db.py and seed.py.
 - [2026-11-13 10:55] [AGENT_4] Status: IN_PROGRESS; module: /packages/database; task: Setting up SQLite schema, seed data, and db.py module.
 >>>>>>> origin/feat/agent-4-database
+=======
+- [2026-11-13 11:10] [AGENT_3] Status: IN_PROGRESS; module: /packages/ai-engine; task: Initialized UrbanFlow AI Engine (Forecasting, Anomaly Detection, Dijkstra/A* routing, Multi-Agent XAI).
+>>>>>>> feat/agent-3-local
 - [2026-11-13 09:40] [AGENT_2] Status: IN_PROGRESS; module: /apps/api; task: API gateway, WebSocket, Dijkstra routing, emergency preemption.
 - [2026-11-13 01:50] [AGENT_1] Endpoint & Contract Sync: Defined strict Zod schemas (`graph_topology`, `telemetry_tick`, `forecast_update`, `agent_decision`) and implemented `fetchGraph`, `injectIncident`, `dispatchEmergency`, `useSinkSocket` with zero-hardcoded mock failover engine on Port 3000.
 - [2026-11-13 01:45] [AGENT_1] Status: READY; module: /frontend; task: Initialized foundational architecture (Vite, React 19, TS, Tailwind CSS, react-router-dom SaaS routes, AppShell, Sidebar, Topbar, DebugRouter, 404 Catch-All, and Button/Card/Input components on port 3000).
