@@ -14,7 +14,7 @@
 
 | Agent ID | Teammate | Owned Directory | Assigned Port | Current Task | Status (IDLE / IN_PROGRESS / BLOCKED / READY) |
 |---|---|---|---|---|---|
-| `AGENT_1` | Rohith | `/apps/web` | `3000` | `[TBD]` | `IDLE` |
+| `AGENT_1` | Rohith | `/frontend` | `3000` | `Phase 1 foundational architecture and routing setup` | `READY` |
 | `AGENT_2` | Vihann | `/apps/api` | `8000` | `[TBD]` | `IDLE` |
 | `AGENT_3` | Madhu | `/packages/ai-engine` | `8001` | `[TBD]` | `IDLE` |
 | `AGENT_4` | Mansi | `/packages/database` | `5432 / 6379` | `[TBD]` | `IDLE` |
@@ -24,7 +24,7 @@
 
 | Directory / Module | Owner Agent | Lock Status | Authorized Collaborators | Notes |
 |---|---|---|---|---|
-| `[TBD]` | `[TBD]` | `UNLOCKED` | `[TBD]` | `[TBD]` |
+| `/frontend` | `AGENT_1` | `LOCKED` | `AGENT_1` (Rohith) | Locked to Port 3000. Setup Vite + React + TS + Tailwind + AppShell |
 
 ## Canonical Contracts
 
@@ -56,16 +56,22 @@
 
 | Owner Agent | Method | Route | Request Body / Params | Response Data Shape | Status (MOCK / LIVE) |
 |---|---|---|---|---|---|
-| `[TBD]` | `[TBD]` | `[TBD]` | `[TBD]` | `[TBD]` | `MOCK` |
+| `AGENT_2` | `GET` | `/api/v1/graph` | none | `{ grid_id, city, timestamp, nodes: [], edges: [] }` | `MOCK (Frontend Failover Ready)` |
+| `AGENT_2` | `POST` | `/api/v1/incident/inject` | `{ edge_id, type, severity, notes? }` | `{ incident_id, status }` | `MOCK (Frontend Failover Ready)` |
+| `AGENT_2` | `POST` | `/api/v1/emergency/dispatch` | `{ origin_node_id, destination_node_id, priority_tier, vehicle_type }` | `{ dispatch_id, clear_corridor_active }` | `MOCK (Frontend Failover Ready)` |
+| `AGENT_2` | `WS` | `/ws/state` | none | Events: `telemetry_tick`, `forecast_update`, `agent_decision` | `MOCK (Frontend Failover Ready)` |
 
 ## Environment Variables Registry (`.env.example` mirror)
 
 | Variable Name | Owner Agent | Required By | Description/Default Local Value |
 |---|---|---|---|
-| `[TBD]` | `[TBD]` | `[TBD]` | `[TBD]` |
+| `VITE_API_BASE_URL` | `AGENT_1` | `AGENT_1` | REST Base URL (`http://localhost:8000/api/v1`) |
+| `VITE_WS_URL` | `AGENT_1` | `AGENT_1` | WebSocket URL (`ws://localhost:8000/ws/state`) |
 
 ## Chronological Sync & Breaking-Change Log (Append-Only at Top)
 
+- [2026-11-13 01:50] [AGENT_1] Endpoint & Contract Sync: Defined strict Zod schemas (`graph_topology`, `telemetry_tick`, `forecast_update`, `agent_decision`) and implemented `fetchGraph`, `injectIncident`, `dispatchEmergency`, `useSinkSocket` with zero-hardcoded mock failover engine on Port 3000.
+- [2026-11-13 01:45] [AGENT_1] Status: READY; module: /frontend; task: Initialized foundational architecture (Vite, React 19, TS, Tailwind CSS, react-router-dom SaaS routes, AppShell, Sidebar, Topbar, DebugRouter, 404 Catch-All, and Button/Card/Input components on port 3000).
 - [2026-11-12 22:45] [ORCHESTRATOR] Initialized the five-agent synchronization protocol, ownership matrix, canonical contract templates, registries, and onboarding pointers.
 
 ## Update Templates

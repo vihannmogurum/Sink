@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+/* Ensure Leaflet container fills correctly and tiles render properly */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #020617 !important;
+  z-index: 10 !important;
+}
+
+/* Fix Leaflet tile seams and rendering issues */
+.leaflet-tile {
+  image-rendering: auto;
+}
+
