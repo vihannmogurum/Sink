@@ -5,21 +5,21 @@ import { useTrafficHud, ActiveCity } from '../../context/TrafficHudContext';
 export const Topbar: React.FC = () => {
   const { selectedCity, setSelectedCity } = useTrafficHud();
 
-  const cities: ActiveCity[] = [
-    'San Francisco (SFMTA)',
-    'Seattle (SDOT)',
+  const sectors: ActiveCity[] = [
+    'Hyderabad Metropolitan Grid',
+    'Cyberabad IT Corridor',
   ];
 
   return (
     <header className="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6">
-      {/* City / Agency Selector */}
+      {/* Grid / Sector Selector */}
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
           <Building2 className="h-4 w-4" />
         </div>
         <div className="relative">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Jurisdiction / Transit Agency
+            Active Urban Sector
           </div>
           <div className="flex items-center gap-1.5 cursor-pointer">
             <select
@@ -27,9 +27,9 @@ export const Topbar: React.FC = () => {
               onChange={(e) => setSelectedCity(e.target.value as ActiveCity)}
               className="appearance-none bg-transparent pr-6 text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer"
             >
-              {cities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
+              {sectors.map((sector) => (
+                <option key={sector} value={sector}>
+                  {sector}
                 </option>
               ))}
             </select>
@@ -44,7 +44,7 @@ export const Topbar: React.FC = () => {
         <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-medium text-slate-600">
-            {selectedCity.includes('Seattle') ? 'SDOT Grid Live' : 'SFMTA Mesh Live'}
+            {selectedCity.includes('Cyberabad') ? 'Cyberabad IT Mesh Live' : 'Hyderabad Metro Mesh Live'}
           </span>
         </div>
 

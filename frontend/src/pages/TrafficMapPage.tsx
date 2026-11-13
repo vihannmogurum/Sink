@@ -29,17 +29,16 @@ export const TrafficMapPage: React.FC = () => {
     cancelDispatchMode,
   } = useTrafficHud();
 
-  // Load graph whenever active city changes (San Francisco vs Seattle)
+  // Load graph whenever active city sector changes (Hyderabad Metropolitan Grid vs Cyberabad IT Corridor)
   useEffect(() => {
-    const isSeattle = selectedCity.includes('Seattle');
+    const isCyberabad = selectedCity.includes('Cyberabad');
     fetchGraph().then((data) => {
-      // If mock engine fallback is active, generate city-specific nodes and edges
-      if (data.grid_id.includes('sf') && isSeattle) {
-        setGraph(getMockGraphTopology('Seattle'));
-      } else if (!isSeattle) {
-        setGraph(getMockGraphTopology('San Francisco'));
-      } else {
+      if (data && data.nodes && data.nodes.length > 0 && data.city.includes('Hyderabad')) {
         setGraph(data);
+      } else if (isCyberabad) {
+        setGraph(getMockGraphTopology('Cyberabad IT Corridor'));
+      } else {
+        setGraph(getMockGraphTopology('Hyderabad Metropolitan Grid'));
       }
     });
   }, [selectedCity]);

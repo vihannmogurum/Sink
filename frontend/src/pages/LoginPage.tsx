@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const loginSchema = z.object({
   role: z.enum(['AGENT_1', 'AGENT_2', 'AGENT_3', 'AGENT_4', 'AGENT_5']),
-  jurisdiction: z.enum(['San Francisco (SFMTA)', 'Seattle (SDOT)']),
+  jurisdiction: z.enum(['Hyderabad Metropolitan Grid', 'Cyberabad IT Corridor']),
   email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
 });
@@ -14,7 +14,7 @@ const loginSchema = z.object({
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [role, setRole] = useState<'AGENT_1' | 'AGENT_2' | 'AGENT_3' | 'AGENT_4' | 'AGENT_5'>('AGENT_1');
-  const [jurisdiction, setJurisdiction] = useState<'San Francisco (SFMTA)' | 'Seattle (SDOT)'>('San Francisco (SFMTA)');
+  const [jurisdiction, setJurisdiction] = useState<'Hyderabad Metropolitan Grid' | 'Cyberabad IT Corridor'>('Hyderabad Metropolitan Grid');
   const [email, setEmail] = useState('rohith@sink.local');
   const [password, setPassword] = useState('password123');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
@@ -54,7 +54,7 @@ export const LoginPage: React.FC = () => {
               Sign in to Sink OS
             </h1>
             <p className="text-xs text-slate-500">
-              Autonomous Municipal Traffic Orchestration for San Francisco (SFMTA) & Seattle (SDOT)
+              Autonomous Urban Grid & Real-Time Traffic Orchestration for Hyderabad
             </p>
           </div>
 
@@ -62,15 +62,15 @@ export const LoginPage: React.FC = () => {
             {/* Primary Jurisdiction Dropdown */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                Transit Authority Jurisdiction
+                Urban Grid Focus
               </label>
               <select
                 value={jurisdiction}
                 onChange={(e) => setJurisdiction(e.target.value as any)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-950 font-semibold"
               >
-                <option value="San Francisco (SFMTA)">San Francisco (SFMTA) — Primary Metro Core</option>
-                <option value="Seattle (SDOT)">Seattle (SDOT) — Secondary Urban Core</option>
+                <option value="Hyderabad Metropolitan Grid">Hyderabad Metropolitan Grid (Central Arterials)</option>
+                <option value="Cyberabad IT Corridor">Cyberabad IT Corridor (Hitec City & Gachibowli)</option>
               </select>
             </div>
 
@@ -101,7 +101,7 @@ export const LoginPage: React.FC = () => {
                 if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
               }}
               error={errors.email}
-              placeholder="agent@sfmta.sink.local"
+              placeholder="agent@hyd.sink.local"
             />
 
             <Input
@@ -146,8 +146,8 @@ export const LoginPage: React.FC = () => {
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>5-AGENT MESH ACTIVE</span>
           </div>
-          <span className="font-mono text-xs text-slate-400">
-            {jurisdiction === 'Seattle (SDOT)' ? 'SEATTLE (SDOT) TRANSIT CORRIDOR' : 'SAN FRANCISCO (SFMTA) METRO GRID'}
+          <span className="font-mono text-xs text-slate-400 uppercase">
+            {jurisdiction}
           </span>
         </div>
 
@@ -158,7 +158,7 @@ export const LoginPage: React.FC = () => {
               Autonomous Urban Flow at Machine Speed
             </h2>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Real-time vector orchestration dynamically coordinating phase timing along Market Street, The Embarcadero, and emergency trauma corridors to UCSF Medical Center.
+              Real-time vector orchestration dynamically coordinating phase timing across Punjagutta Flyover, Banjara Hills Road No. 2, and trauma preemption corridors to Apollo Hospital Jubilee Hills.
             </p>
           </div>
 
@@ -169,7 +169,7 @@ export const LoginPage: React.FC = () => {
                 <span className="text-xs font-mono uppercase font-bold">Latency p99</span>
               </div>
               <div className="text-2xl font-bold font-mono">18.4 ms</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Distributed SFMTA / SDOT bus</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Distributed cross-module bus</div>
             </div>
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -184,24 +184,24 @@ export const LoginPage: React.FC = () => {
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>San Francisco (SFMTA)</span>
-              <span className="text-emerald-400 font-bold">Primary Grid Active</span>
+              <span>Hyderabad Metropolitan Grid</span>
+              <span className="text-emerald-400 font-bold">Central Core Active</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>Seattle (SDOT)</span>
-              <span className="text-blue-400 font-bold">Secondary Standby</span>
+              <span>Cyberabad IT Corridor</span>
+              <span className="text-blue-400 font-bold">Hitec Spine Online</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
               <span>Trauma Preemption</span>
-              <span className="text-purple-400 font-bold">UCSF Mission Bay Online</span>
+              <span className="text-purple-400 font-bold">Apollo Jubilee Hills Ready</span>
             </div>
           </div>
         </div>
 
         {/* Footer info */}
         <div className="relative z-10 flex items-center justify-between text-xs text-slate-500 font-mono">
-          <span>Sink Autonomous Fleet v0.2</span>
-          <span>SFMTA & SDOT Certified Contracts</span>
+          <span>Sink Autonomous Fleet v0.3</span>
+          <span>Hyderabad Metropolitan Certified Contracts</span>
         </div>
       </div>
     </div>

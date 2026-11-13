@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { TimeHorizon } from '../pages/map/HorizonScrubber';
 
-export type ActiveCity = 'San Francisco (SFMTA)' | 'Seattle (SDOT)';
+export type ActiveCity = 'Hyderabad Metropolitan Grid' | 'Cyberabad IT Corridor';
 
 interface TrafficHudContextType {
   horizon: TimeHorizon;
@@ -30,7 +30,7 @@ const TrafficHudContext = createContext<TrafficHudContextType | undefined>(undef
 
 export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [horizon, setHorizonState] = useState<TimeHorizon>('live');
-  const [selectedCity, setSelectedCityState] = useState<ActiveCity>('San Francisco (SFMTA)');
+  const [selectedCity, setSelectedCityState] = useState<ActiveCity>('Hyderabad Metropolitan Grid');
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [flyToCoords, setFlyToCoords] = useState<[number, number] | null>(null);
@@ -41,13 +41,12 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
 
   const setSelectedCity = (city: ActiveCity) => {
-    console.log(`[TrafficHud] City Switched: ${city}`);
+    console.log(`[TrafficHud] City Sector Switched: ${city}`);
     setSelectedCityState(city);
-    // Pan map to city default
-    if (city === 'Seattle (SDOT)') {
-      setFlyToCoords([47.6062, -122.3321]);
+    if (city === 'Cyberabad IT Corridor') {
+      setFlyToCoords([17.4412, 78.3755]);
     } else {
-      setFlyToCoords([37.7749, -122.4194]);
+      setFlyToCoords([17.4399, 78.4983]);
     }
   };
 
@@ -78,7 +77,6 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setSelectedDestination(null);
   };
 
-  // Close drawer or cancel dispatch on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {

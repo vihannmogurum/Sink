@@ -50,7 +50,7 @@ export const Sidebar: React.FC = () => {
                 SINK OS
               </span>
               <span className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">
-                {selectedCity.includes('Seattle') ? 'Seattle (SDOT)' : 'San Francisco (SFMTA)'}
+                {selectedCity.includes('Cyberabad') ? 'Cyberabad IT Corridor' : 'Hyderabad Metro Grid'}
               </span>
             </div>
           </div>

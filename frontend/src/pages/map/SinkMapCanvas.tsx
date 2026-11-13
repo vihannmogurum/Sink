@@ -28,7 +28,7 @@ function MapResizeController() {
   return null;
 }
 
-// Controller to smoothly pan/fly map viewport to targets or cities
+// Controller to smoothly pan/fly map viewport to targets or Hyderabad sectors
 function MapFlyController({
   coords,
   selectedCity,
@@ -38,22 +38,20 @@ function MapFlyController({
 }) {
   const map = useMap();
 
-  // Watch for coordinate flyTo triggers (e.g. from incident cards, search bars)
   useEffect(() => {
     if (coords) {
       console.log(`[MapFlyController] Flying map to [${coords[0]}, ${coords[1]}]`);
-      map.flyTo(coords, 15, { duration: 1.5 });
+      map.flyTo(coords, 14, { duration: 1.5 });
     }
   }, [coords, map]);
 
-  // Dynamically pan when city selection changes
   useEffect(() => {
-    if (selectedCity.includes('Seattle')) {
-      console.log('[MapFlyController] Panning to Seattle [47.6062, -122.3321]');
-      map.flyTo([47.6062, -122.3321], 14, { duration: 2.0 });
+    if (selectedCity.includes('Cyberabad')) {
+      console.log('[MapFlyController] Panning to Cyberabad IT Corridor [17.4412, 78.3755]');
+      map.flyTo([17.4412, 78.3755], 13, { duration: 1.8 });
     } else {
-      console.log('[MapFlyController] Panning to San Francisco [37.7749, -122.4194]');
-      map.flyTo([37.7749, -122.4194], 14, { duration: 2.0 });
+      console.log('[MapFlyController] Panning to Hyderabad Metropolitan Grid [17.4399, 78.4983]');
+      map.flyTo([17.4399, 78.4983], 13, { duration: 1.8 });
     }
   }, [selectedCity, map]);
 
@@ -80,8 +78,8 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
     selectedDestination,
   } = useTrafficHud();
 
-  // Default coordinate center: San Francisco primary [37.7749, -122.4194]
-  const defaultCenter: LatLngExpression = [37.7749, -122.4194];
+  // Strict Default Center: Hyderabad, India [17.4399, 78.4983] at zoom level 13
+  const defaultCenter: LatLngExpression = [17.4399, 78.4983];
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, { lat: number; lng: number; name: string; type: string; zone: string }>();
@@ -164,7 +162,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           maxZoom={16}
         />
 
-        {/* Dynamic Road Edges in San Francisco (or Seattle) */}
+        {/* Dynamic Road Edges across Hyderabad Metropolitan & Cyberabad IT Corridors */}
         {graph?.edges.map((edge) => {
           const source = nodeMap.get(edge.source_node_id);
           const target = nodeMap.get(edge.target_node_id);
@@ -214,7 +212,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                     </div>
                     {isEmergency && (
                       <div className="text-[11px] font-bold text-blue-600">
-                        ⚡ EMERGENCY GREEN WAVE ACTIVE
+                        ⚡ EMERGENCY GREEN WAVE PREEMPTION ACTIVE
                       </div>
                     )}
                     <div className="text-[11px] text-slate-700">
@@ -270,7 +268,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           );
         })}
 
-        {/* CV Anomalies on real street midpoints */}
+        {/* CV Anomalies on real Hyderabad corridor midpoints */}
         {!dispatchMode &&
           latestTick?.cv_anomalies.map((anom) => {
             const targetEdge = graph?.edges.find((e) => e.edge_id === anom.edge_id);
