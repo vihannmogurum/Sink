@@ -4,6 +4,7 @@ import { useSinkSocket } from '../hooks/useSinkSocket';
 import { GraphTopology } from '../schemas/contracts';
 import { SinkMapCanvas } from './map/SinkMapCanvas';
 import { HorizonScrubber } from './map/HorizonScrubber';
+import { RouteSearchBar } from './map/RouteSearchBar';
 import { IncidentFeed } from './map/IncidentFeed';
 import { AgentAuditDrawer } from './map/AgentAuditDrawer';
 import { ChaosDock } from './map/ChaosDock';
@@ -99,6 +100,38 @@ const TrafficMapContent: React.FC = () => {
       {/* Tactical Horizon Scrubber Pill (Top Centered) */}
       <HorizonScrubber
         onStartDispatchMode={handleStartDispatchMode}
+        isEmergencyActive={emergencyEdgeIds.length > 0}
+      />
+
+      {/* Floating Route Search Bars (Current Location & Destination) */}
+      <RouteSearchBar
+        graph={graph}
+        onDispatchRoute={async (orig, dest) => {
+          if (!graph) return;
+          try {
+            const res = await dispatchEmergency(
+              {
+                origin_node_id: orig,
+                destination_node_id: dest,
+                priority_tier: 'priority_1_code_3',
+                vehicle_type: 'ambulance',
+              },
+              graph
+            );
+            setEmergencyEdgeIds(res.path_edge_ids);
+            cancelDispatchMode();
+            setActionNotice(
+              `Emergency Corridor Active: ${res.dispatch_id} (${res.path_edge_ids.length} corridor edges locked)`
+            );
+            setTimeout(() => {
+              setEmergencyEdgeIds([]);
+              setActionNotice(null);
+            }, 15000);
+          } catch (err) {
+            console.error('Dispatch failed:', err);
+            setActionNotice('Failed to dispatch route.');
+          }
+        }}
         isEmergencyActive={emergencyEdgeIds.length > 0}
       />
 
