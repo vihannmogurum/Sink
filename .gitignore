@@ -1,0 +1,6 @@
+backend/__pycache__/
+backend/*/__pycache__/
+backend/state_store/*.db*
+*.pyc
+node_modules/
+dist/
