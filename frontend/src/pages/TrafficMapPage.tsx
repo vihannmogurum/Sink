@@ -8,16 +8,17 @@ import { RouteSearchBar } from './map/RouteSearchBar';
 import { IncidentFeed } from './map/IncidentFeed';
 import { AgentAuditDrawer } from './map/AgentAuditDrawer';
 import { ChaosDock } from './map/ChaosDock';
-import { TrafficHudProvider, useTrafficHud } from '../context/TrafficHudContext';
+import { useTrafficHud } from '../context/TrafficHudContext';
+import { getMockGraphTopology } from '../services/mockEngine';
 
-const TrafficMapContent: React.FC = () => {
+export const TrafficMapPage: React.FC = () => {
   const [graph, setGraph] = useState<GraphTopology | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-  // Initial empty array: no hardcoded emergency corridor rendered on startup
   const [emergencyEdgeIds, setEmergencyEdgeIds] = useState<string[]>([]);
 
   const { isConnected, isMockFallback, latestTick, latestForecast, agentDecisions } = useSinkSocket();
   const {
+    selectedCity,
     selectedEdgeId,
     dispatchMode,
     setDispatchMode,
@@ -28,11 +29,20 @@ const TrafficMapContent: React.FC = () => {
     cancelDispatchMode,
   } = useTrafficHud();
 
+  // Load graph whenever active city changes (San Francisco vs Seattle)
   useEffect(() => {
+    const isSeattle = selectedCity.includes('Seattle');
     fetchGraph().then((data) => {
-      setGraph(data);
+      // If mock engine fallback is active, generate city-specific nodes and edges
+      if (data.grid_id.includes('sf') && isSeattle) {
+        setGraph(getMockGraphTopology('Seattle'));
+      } else if (!isSeattle) {
+        setGraph(getMockGraphTopology('San Francisco'));
+      } else {
+        setGraph(data);
+      }
     });
-  }, []);
+  }, [selectedCity]);
 
   // Handle entering Dispatch Mode
   const handleStartDispatchMode = () => {
@@ -47,19 +57,16 @@ const TrafficMapContent: React.FC = () => {
     if (!dispatchMode || !graph) return;
 
     if (!selectedOrigin) {
-      // Step 1: Select Origin
       setSelectedOrigin(nodeId);
       const originNode = graph.nodes.find((n) => n.node_id === nodeId);
       setActionNotice(`Origin set: ${originNode?.name || nodeId}. Now click Destination node.`);
     } else if (!selectedDestination && nodeId !== selectedOrigin) {
-      // Step 2: Select Destination
       setSelectedDestination(nodeId);
       const destNode = graph.nodes.find((n) => n.node_id === nodeId);
       const originNode = graph.nodes.find((n) => n.node_id === selectedOrigin);
       setActionNotice(`Routing emergency wave: ${originNode?.name} → ${destNode?.name}...`);
 
       try {
-        // Step 3: Trigger dispatch API / mock engine with user-selected endpoints
         const res = await dispatchEmergency(
           {
             origin_node_id: selectedOrigin,
@@ -70,14 +77,12 @@ const TrafficMapContent: React.FC = () => {
           graph
         );
 
-        // Step 4: Exit dispatch mode and render the dynamically calculated path
         setEmergencyEdgeIds(res.path_edge_ids);
         cancelDispatchMode();
         setActionNotice(
           `Emergency green wave engaged: ${res.dispatch_id} (${res.path_edge_ids.length} corridor edges active)`
         );
 
-        // Auto-revert after 15 seconds
         setTimeout(() => {
           setEmergencyEdgeIds([]);
           setActionNotice(null);
@@ -155,7 +160,7 @@ const TrafficMapContent: React.FC = () => {
       {/* Floating Chaos Dock (Bottom Centered) */}
       {!dispatchMode && (
         <ChaosDock
-          activeEdgeId={selectedEdgeId || 'edge_emb_mont'}
+          activeEdgeId={selectedEdgeId || (graph?.edges[0]?.edge_id ?? 'edge_market_arterial_1')}
           onIncidentInjected={(_id, msg) => {
             setActionNotice(msg);
             setTimeout(() => setActionNotice(null), 5000);
@@ -192,16 +197,12 @@ const TrafficMapContent: React.FC = () => {
             isMockFallback ? 'bg-amber-400 animate-pulse' : isConnected ? 'bg-emerald-400' : 'bg-rose-500'
           }`}
         />
-        <span>{isMockFallback ? 'Mock Mesh: Port 8000' : 'Live Sync: Port 8000'}</span>
+        <span>
+          {isMockFallback
+            ? `Mock Mesh (${selectedCity}): Port 8000`
+            : `Live Sync (${selectedCity}): Port 8000`}
+        </span>
       </div>
     </div>
-  );
-};
-
-export const TrafficMapPage: React.FC = () => {
-  return (
-    <TrafficHudProvider>
-      <TrafficMapContent />
-    </TrafficHudProvider>
   );
 };

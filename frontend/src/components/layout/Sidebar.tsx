@@ -11,6 +11,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTrafficHud } from '../../context/TrafficHudContext';
 
 interface NavItem {
   name: string;
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
 
 export const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const { selectedCity } = useTrafficHud();
 
   return (
     <aside
@@ -48,7 +50,7 @@ export const Sidebar: React.FC = () => {
                 SINK OS
               </span>
               <span className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">
-                Agent_1 Frontend
+                {selectedCity.includes('Seattle') ? 'Seattle (SDOT)' : 'San Francisco (SFMTA)'}
               </span>
             </div>
           </div>

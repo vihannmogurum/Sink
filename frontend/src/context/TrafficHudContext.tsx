@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { TimeHorizon } from '../pages/map/HorizonScrubber';
 
+export type ActiveCity = 'San Francisco (SFMTA)' | 'Seattle (SDOT)';
+
 interface TrafficHudContextType {
   horizon: TimeHorizon;
   setHorizon: (horizon: TimeHorizon) => void;
+  selectedCity: ActiveCity;
+  setSelectedCity: (city: ActiveCity) => void;
   selectedEdgeId: string | null;
   setSelectedEdgeId: (edgeId: string | null) => void;
   isDrawerOpen: boolean;
@@ -26,6 +30,7 @@ const TrafficHudContext = createContext<TrafficHudContextType | undefined>(undef
 
 export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [horizon, setHorizonState] = useState<TimeHorizon>('live');
+  const [selectedCity, setSelectedCityState] = useState<ActiveCity>('San Francisco (SFMTA)');
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [flyToCoords, setFlyToCoords] = useState<[number, number] | null>(null);
@@ -34,6 +39,17 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [dispatchMode, setDispatchMode] = useState<boolean>(false);
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
+
+  const setSelectedCity = (city: ActiveCity) => {
+    console.log(`[TrafficHud] City Switched: ${city}`);
+    setSelectedCityState(city);
+    // Pan map to city default
+    if (city === 'Seattle (SDOT)') {
+      setFlyToCoords([47.6062, -122.3321]);
+    } else {
+      setFlyToCoords([37.7749, -122.4194]);
+    }
+  };
 
   const setHorizon = (newHorizon: TimeHorizon) => {
     console.log(`[TrafficHud] Forecast Horizon State Changed: ${newHorizon.toUpperCase()}`);
@@ -82,6 +98,8 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       value={{
         horizon,
         setHorizon,
+        selectedCity,
+        setSelectedCity,
         selectedEdgeId,
         setSelectedEdgeId,
         isDrawerOpen,

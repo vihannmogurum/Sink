@@ -28,14 +28,35 @@ function MapResizeController() {
   return null;
 }
 
-function MapFlyController({ coords }: { coords?: [number, number] | null }) {
+// Controller to smoothly pan/fly map viewport to targets or cities
+function MapFlyController({
+  coords,
+  selectedCity,
+}: {
+  coords?: [number, number] | null;
+  selectedCity: string;
+}) {
   const map = useMap();
+
+  // Watch for coordinate flyTo triggers (e.g. from incident cards, search bars)
   useEffect(() => {
     if (coords) {
       console.log(`[MapFlyController] Flying map to [${coords[0]}, ${coords[1]}]`);
-      map.flyTo(coords, 16, { duration: 1.5 });
+      map.flyTo(coords, 15, { duration: 1.5 });
     }
   }, [coords, map]);
+
+  // Dynamically pan when city selection changes
+  useEffect(() => {
+    if (selectedCity.includes('Seattle')) {
+      console.log('[MapFlyController] Panning to Seattle [47.6062, -122.3321]');
+      map.flyTo([47.6062, -122.3321], 14, { duration: 2.0 });
+    } else {
+      console.log('[MapFlyController] Panning to San Francisco [37.7749, -122.4194]');
+      map.flyTo([37.7749, -122.4194], 14, { duration: 2.0 });
+    }
+  }, [selectedCity, map]);
+
   return null;
 }
 
@@ -48,6 +69,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
 }) => {
   const {
     horizon,
+    selectedCity,
     selectedEdgeId,
     setSelectedEdgeId,
     setIsDrawerOpen,
@@ -58,7 +80,8 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
     selectedDestination,
   } = useTrafficHud();
 
-  const defaultCenter: LatLngExpression = [37.7844, -122.4079];
+  // Default coordinate center: San Francisco primary [37.7749, -122.4194]
+  const defaultCenter: LatLngExpression = [37.7749, -122.4194];
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, { lat: number; lng: number; name: string; type: string; zone: string }>();
@@ -107,7 +130,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
   }, [latestTick, forecastUpdate, horizon, graph]);
 
   const handleEdgeClick = (edgeId: string) => {
-    if (dispatchMode) return; // In dispatch selection mode, node selection takes priority
+    if (dispatchMode) return;
     setSelectedEdgeId(edgeId);
     setIsDrawerOpen(true);
   };
@@ -122,13 +145,13 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
     <div className="relative h-full w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-inner">
       <MapContainer
         center={defaultCenter}
-        zoom={14}
+        zoom={13}
         scrollWheelZoom={true}
         className="h-full w-full z-0"
         attributionControl={false}
       >
         <MapResizeController />
-        <MapFlyController coords={flyToCoords} />
+        <MapFlyController coords={flyToCoords} selectedCity={selectedCity} />
 
         {/* High-Performance Public Dark Matter Map (Esri Dark Canvas) */}
         <TileLayer
@@ -141,7 +164,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           maxZoom={16}
         />
 
-        {/* Dynamic Road Edges: Base graph rendered cleanly */}
+        {/* Dynamic Road Edges in San Francisco (or Seattle) */}
         {graph?.edges.map((edge) => {
           const source = nodeMap.get(edge.source_node_id);
           const target = nodeMap.get(edge.target_node_id);
@@ -165,7 +188,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                   pathOptions={{
                     color: isEmergency ? '#3B82F6' : '#FFFFFF',
                     weight: isEmergency ? 12 : 10,
-                    opacity: isEmergency ? 0.6 : 0.4,
+                    opacity: isEmergency ? 0.65 : 0.4,
                     lineCap: 'round',
                   }}
                 />
@@ -187,18 +210,18 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                 <Tooltip sticky direction="top" opacity={0.95}>
                   <div className="p-1 font-mono text-xs text-slate-900">
                     <div className="font-bold text-slate-950">
-                      {source.name.split(' ')[0]} → {target.name.split(' ')[0]}
+                      {source.name} → {target.name}
                     </div>
                     {isEmergency && (
                       <div className="text-[11px] font-bold text-blue-600">
-                        ⚡ EMERGENCY CLEAR CORRIDOR ACTIVE
+                        ⚡ EMERGENCY GREEN WAVE ACTIVE
                       </div>
                     )}
                     <div className="text-[11px] text-slate-700">
-                      Horizon: <span className="font-semibold uppercase">{horizon}</span>
+                      Sector: <span className="font-semibold">{selectedCity}</span>
                     </div>
                     <div className="text-[11px] text-slate-700">
-                      Speed: <span className="font-semibold">{telemetry?.current_speed_kph ?? '--'} kph</span>
+                      Speed: <span className="font-semibold">{telemetry?.current_speed_kph ?? '--'} kph</span> (Limit: {edge.speed_limit_kph})
                     </div>
                   </div>
                 </Tooltip>
@@ -207,7 +230,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           );
         })}
 
-        {/* Node Markers with dynamic Start / End dispatch mode states */}
+        {/* Intersection / Destination Nodes */}
         {graph?.nodes.map((node) => {
           const isHub = node.intersection_type === 'freeway_ramp' || node.intersection_type === 'roundabout';
           const isOrigin = selectedOrigin === node.node_id;
@@ -247,7 +270,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           );
         })}
 
-        {/* CV Anomalies */}
+        {/* CV Anomalies on real street midpoints */}
         {!dispatchMode &&
           latestTick?.cv_anomalies.map((anom) => {
             const targetEdge = graph?.edges.find((e) => e.edge_id === anom.edge_id);
@@ -281,6 +304,9 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                       {anom.type.replace(/_/g, ' ')}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
+                      Corridor: {targetEdge.edge_id}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
                       CV Confidence: {Math.round(anom.confidence_score * 100)}%
                     </div>
                   </div>

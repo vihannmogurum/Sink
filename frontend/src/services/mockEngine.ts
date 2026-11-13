@@ -10,128 +10,227 @@ import {
 } from '../schemas/contracts';
 
 // -------------------------------------------------------------
-// 5 Nodes, 6 Edges Topology (San Francisco Core Corridor)
+// Real San Francisco Arterials, Corridors & Medical Center Hubs
 // -------------------------------------------------------------
-export const synthetic_nodes = [
+export const sf_nodes = [
   {
-    node_id: 'node_embarcadero',
-    name: 'Embarcadero & Market',
-    coordinates: { lat: 37.7946, lng: -122.3948 },
+    node_id: 'node_embarcadero_market',
+    name: 'The Ferry Building & Market St',
+    coordinates: { lat: 37.7955, lng: -122.3937 },
     intersection_type: 'signalized' as const,
     status: 'online' as const,
-    zone: 'Downtown Core',
+    zone: 'SFMTA Downtown Core',
   },
   {
-    node_id: 'node_montgomery',
-    name: 'Montgomery Financial Transit',
-    coordinates: { lat: 37.7894, lng: -122.4013 },
+    node_id: 'node_market_montgomery',
+    name: 'Market St & Montgomery Transit Hub',
+    coordinates: { lat: 37.7892, lng: -122.4014 },
     intersection_type: 'signalized' as const,
     status: 'online' as const,
-    zone: 'Financial District',
+    zone: 'SFMTA Financial Corridor',
   },
   {
-    node_id: 'node_powell',
-    name: 'Powell Cable Junction',
-    coordinates: { lat: 37.7844, lng: -122.4079 },
+    node_id: 'node_market_powell',
+    name: 'Market St & 4th / Powell Cable',
+    coordinates: { lat: 37.7845, lng: -122.4074 },
     intersection_type: 'signalized' as const,
     status: 'online' as const,
-    zone: 'Union Square Corridor',
+    zone: 'SFMTA Union Square Corridor',
   },
   {
-    node_id: 'node_civic_center',
-    name: 'Civic Center Plaza Ramp',
-    coordinates: { lat: 37.7793, lng: -122.4148 },
+    node_id: 'node_civic_van_ness',
+    name: 'Civic Center Plaza & Van Ness Ave',
+    coordinates: { lat: 37.7778, lng: -122.4189 },
     intersection_type: 'roundabout' as const,
     status: 'online' as const,
-    zone: 'Civic Sector',
+    zone: 'SFMTA Civic Center Core',
   },
   {
-    node_id: 'node_mission_16th',
-    name: '16th & Mission Arterial Hub',
-    coordinates: { lat: 37.7650, lng: -122.4197 },
+    node_id: 'node_ucsf_mission_bay',
+    name: 'UCSF Medical Center at Mission Bay',
+    coordinates: { lat: 37.7678, lng: -122.3912 },
     intersection_type: 'freeway_ramp' as const,
     status: 'online' as const,
-    zone: 'Mission Transit Hub',
+    zone: 'Emergency Trauma Hub',
+  },
+  {
+    node_id: 'node_zuckerberg_sfgh',
+    name: 'Zuckerberg SF General Hospital (Potrero)',
+    coordinates: { lat: 37.7558, lng: -122.4047 },
+    intersection_type: 'signalized' as const,
+    status: 'online' as const,
+    zone: 'Level 1 Trauma Center',
   },
 ];
 
-export const synthetic_edges = [
+export const sf_edges = [
   {
-    edge_id: 'edge_emb_mont',
-    source_node_id: 'node_embarcadero',
-    target_node_id: 'node_montgomery',
-    length_meters: 650,
-    speed_limit_kph: 45,
-    lanes: 4,
-    road_class: 'arterial' as const,
-    base_capacity: 1800,
-  },
-  {
-    edge_id: 'edge_mont_pow',
-    source_node_id: 'node_montgomery',
-    target_node_id: 'node_powell',
-    length_meters: 720,
+    edge_id: 'edge_market_arterial_1',
+    source_node_id: 'node_embarcadero_market',
+    target_node_id: 'node_market_montgomery',
+    length_meters: 850,
     speed_limit_kph: 40,
-    lanes: 3,
-    road_class: 'arterial' as const,
-    base_capacity: 1500,
-  },
-  {
-    edge_id: 'edge_pow_civic',
-    source_node_id: 'node_powell',
-    target_node_id: 'node_civic_center',
-    length_meters: 800,
-    speed_limit_kph: 45,
     lanes: 4,
     road_class: 'arterial' as const,
     base_capacity: 1900,
   },
   {
-    edge_id: 'edge_civic_mission',
-    source_node_id: 'node_civic_center',
-    target_node_id: 'node_mission_16th',
-    length_meters: 1650,
-    speed_limit_kph: 60,
+    edge_id: 'edge_market_arterial_2',
+    source_node_id: 'node_market_montgomery',
+    target_node_id: 'node_market_powell',
+    length_meters: 650,
+    speed_limit_kph: 35,
+    lanes: 4,
+    road_class: 'arterial' as const,
+    base_capacity: 1800,
+  },
+  {
+    edge_id: 'edge_market_arterial_3',
+    source_node_id: 'node_market_powell',
+    target_node_id: 'node_civic_van_ness',
+    length_meters: 1100,
+    speed_limit_kph: 45,
+    lanes: 4,
+    road_class: 'arterial' as const,
+    base_capacity: 2100,
+  },
+  {
+    edge_id: 'edge_embarcadero_ucsf_express',
+    source_node_id: 'node_embarcadero_market',
+    target_node_id: 'node_ucsf_mission_bay',
+    length_meters: 2800,
+    speed_limit_kph: 55,
     lanes: 4,
     road_class: 'highway' as const,
-    base_capacity: 2400,
+    base_capacity: 2600,
   },
   {
-    edge_id: 'edge_emb_pow_bypass',
-    source_node_id: 'node_embarcadero',
-    target_node_id: 'node_powell',
-    length_meters: 1400,
+    edge_id: 'edge_powell_sfgh_corridor',
+    source_node_id: 'node_market_powell',
+    target_node_id: 'node_zuckerberg_sfgh',
+    length_meters: 3200,
     speed_limit_kph: 50,
-    lanes: 2,
-    road_class: 'collector' as const,
-    base_capacity: 1200,
+    lanes: 3,
+    road_class: 'arterial' as const,
+    base_capacity: 2000,
   },
   {
-    edge_id: 'edge_mont_mission_express',
-    source_node_id: 'node_montgomery',
-    target_node_id: 'node_mission_16th',
-    length_meters: 2500,
-    speed_limit_kph: 65,
+    edge_id: 'edge_ucsf_sfgh_link',
+    source_node_id: 'node_ucsf_mission_bay',
+    target_node_id: 'node_zuckerberg_sfgh',
+    length_meters: 1800,
+    speed_limit_kph: 45,
     lanes: 3,
-    road_class: 'highway' as const,
+    road_class: 'collector' as const,
+    base_capacity: 1600,
+  },
+  {
+    edge_id: 'edge_civic_sfgh_potrero',
+    source_node_id: 'node_civic_van_ness',
+    target_node_id: 'node_zuckerberg_sfgh',
+    length_meters: 2600,
+    speed_limit_kph: 50,
+    lanes: 4,
+    road_class: 'arterial' as const,
     base_capacity: 2200,
   },
 ];
 
-export const getMockGraphTopology = (): GraphTopology => {
+// -------------------------------------------------------------
+// Seattle (SDOT) Secondary Corridor Nodes & Edges
+// -------------------------------------------------------------
+export const seattle_nodes = [
+  {
+    node_id: 'node_pike_place',
+    name: 'Pike Place Market & 1st Ave',
+    coordinates: { lat: 47.6087, lng: -122.3400 },
+    intersection_type: 'signalized' as const,
+    status: 'online' as const,
+    zone: 'SDOT Downtown Core',
+  },
+  {
+    node_id: 'node_westlake_center',
+    name: 'Westlake Transit Hub (4th & Pine)',
+    coordinates: { lat: 47.6114, lng: -122.3370 },
+    intersection_type: 'signalized' as const,
+    status: 'online' as const,
+    zone: 'SDOT Retail Core',
+  },
+  {
+    node_id: 'node_pioneer_square',
+    name: 'Pioneer Square & 2nd Ave Ext',
+    coordinates: { lat: 47.6015, lng: -122.3332 },
+    intersection_type: 'signalized' as const,
+    status: 'online' as const,
+    zone: 'SDOT Historic District',
+  },
+  {
+    node_id: 'node_harborview_medical',
+    name: 'Harborview Medical Center (First Hill)',
+    coordinates: { lat: 47.6046, lng: -122.3244 },
+    intersection_type: 'freeway_ramp' as const,
+    status: 'online' as const,
+    zone: 'Level 1 Trauma Hospital',
+  },
+];
+
+export const seattle_edges = [
+  {
+    edge_id: 'edge_sea_pike_westlake',
+    source_node_id: 'node_pike_place',
+    target_node_id: 'node_westlake_center',
+    length_meters: 600,
+    speed_limit_kph: 40,
+    lanes: 3,
+    road_class: 'arterial' as const,
+    base_capacity: 1700,
+  },
+  {
+    edge_id: 'edge_sea_westlake_pioneer',
+    source_node_id: 'node_westlake_center',
+    target_node_id: 'node_pioneer_square',
+    length_meters: 1300,
+    speed_limit_kph: 45,
+    lanes: 4,
+    road_class: 'arterial' as const,
+    base_capacity: 2000,
+  },
+  {
+    edge_id: 'edge_sea_pioneer_harborview',
+    source_node_id: 'node_pioneer_square',
+    target_node_id: 'node_harborview_medical',
+    length_meters: 1100,
+    speed_limit_kph: 45,
+    lanes: 3,
+    road_class: 'collector' as const,
+    base_capacity: 1500,
+  },
+];
+
+export const getMockGraphTopology = (city: 'San Francisco' | 'Seattle' = 'San Francisco'): GraphTopology => {
+  if (city === 'Seattle') {
+    const data: GraphTopology = {
+      grid_id: 'grid_sea_sdot_01',
+      city: 'Seattle (SDOT)',
+      timestamp: new Date().toISOString(),
+      nodes: seattle_nodes,
+      edges: seattle_edges,
+    };
+    return graph_topology_schema.parse(data);
+  }
+
   const data: GraphTopology = {
-    grid_id: 'grid_sf_core_01',
-    city: 'San Francisco',
+    grid_id: 'grid_sf_sfmta_01',
+    city: 'San Francisco (SFMTA)',
     timestamp: new Date().toISOString(),
-    nodes: synthetic_nodes,
-    edges: synthetic_edges,
+    nodes: sf_nodes,
+    edges: sf_edges,
   };
   return graph_topology_schema.parse(data);
 };
 
-export const getMockTelemetryTick = (): TelemetryTick => {
-  const edgeTelemetry = synthetic_edges.map((edge, index) => {
-    // Dynamic slight variations
+export const getMockTelemetryTick = (edges = sf_edges): TelemetryTick => {
+  const edgeTelemetry = edges.map((edge, index) => {
     const jitter = Math.sin(Date.now() / 3000 + index) * 0.15;
     const baseCongestion = index === 1 ? 0.65 : 0.22;
     const congestion = Math.min(Math.max(baseCongestion + jitter, 0.05), 0.95);
@@ -154,7 +253,7 @@ export const getMockTelemetryTick = (): TelemetryTick => {
     cv_anomalies: [
       {
         anomaly_id: 'anom_9012',
-        edge_id: 'edge_mont_pow',
+        edge_id: edges[1] ? edges[1].edge_id : 'edge_market_arterial_2',
         type: 'sudden_braking',
         severity: 'medium',
         confidence_score: 0.89,
@@ -166,12 +265,12 @@ export const getMockTelemetryTick = (): TelemetryTick => {
   return telemetry_tick_schema.parse(data);
 };
 
-export const getMockForecastUpdate = (): ForecastUpdate => {
+export const getMockForecastUpdate = (edges = sf_edges): ForecastUpdate => {
   const data: ForecastUpdate = {
     forecast_id: `fc_${Date.now()}`,
     generated_at: new Date().toISOString(),
-    model_version: 'ai-engine-v1.4-transformer',
-    horizon_15m: synthetic_edges.map((edge) => ({
+    model_version: 'ai-engine-v1.4-sf-transformer',
+    horizon_15m: edges.map((edge) => ({
       edge_id: edge.edge_id,
       predicted_speed_kph: Math.round(edge.speed_limit_kph * 0.8),
       predicted_congestion_index: 0.35,
@@ -180,7 +279,7 @@ export const getMockForecastUpdate = (): ForecastUpdate => {
         upper_kph: Math.round(edge.speed_limit_kph * 0.9),
       },
     })),
-    horizon_30m: synthetic_edges.map((edge) => ({
+    horizon_30m: edges.map((edge) => ({
       edge_id: edge.edge_id,
       predicted_speed_kph: Math.round(edge.speed_limit_kph * 0.68),
       predicted_congestion_index: 0.48,
@@ -200,12 +299,12 @@ export const getMockAgentDecisions = (): AgentDecision[] => {
       decision_id: 'dec_8819',
       agent_id: 'AGENT_3',
       decision_type: 'signal_timing_adjust',
-      target_entity_id: 'node_montgomery',
-      action_parameters: { green_phase_delta_sec: 12, direction: 'eastbound' },
+      target_entity_id: 'node_market_montgomery',
+      action_parameters: { green_phase_delta_sec: 14, direction: 'westbound' },
       explanation_xai: {
-        rationale: 'Mitigate queued queue spillback on Montgomery corridor prior to 15m surge.',
-        primary_factors: ['CV braking spike on edge_mont_pow', 'Upstream inflow +14%'],
-        expected_delay_reduction_pct: 18.5,
+        rationale: 'Mitigate queued queue spillback on Market St transit corridor prior to 15m surge.',
+        primary_factors: ['CV braking spike at Montgomery Hub', 'Upstream inflow +14%'],
+        expected_delay_reduction_pct: 21.5,
         safety_confidence: 0.96,
       },
       status: 'active',
@@ -214,16 +313,16 @@ export const getMockAgentDecisions = (): AgentDecision[] => {
     {
       decision_id: 'dec_8820',
       agent_id: 'AGENT_2',
-      decision_type: 'dynamic_reroute',
-      target_entity_id: 'edge_emb_pow_bypass',
-      action_parameters: { divert_ratio: 0.25, advisory_vms: true },
+      decision_type: 'emergency_preemption',
+      target_entity_id: 'edge_embarcadero_ucsf_express',
+      action_parameters: { clear_corridor: true, advisory_vms: true },
       explanation_xai: {
-        rationale: 'Redistribute Embarcadero arterial traffic via collector bypass.',
-        primary_factors: ['Capacity reserve on collector >60%', 'Downstream arterial delay'],
-        expected_delay_reduction_pct: 22.0,
-        safety_confidence: 0.94,
+        rationale: 'Preempt green-wave corridor for trauma transit to UCSF Medical Center at Mission Bay.',
+        primary_factors: ['Code 3 Ambulance Inbound', 'The Embarcadero Signal Synchrony'],
+        expected_delay_reduction_pct: 38.0,
+        safety_confidence: 0.98,
       },
-      status: 'proposed',
+      status: 'active',
       created_at: new Date(Date.now() - 30000).toISOString(),
     },
   ];
