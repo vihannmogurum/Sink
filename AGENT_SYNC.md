@@ -17,7 +17,7 @@
 | `AGENT_1` | Rohith | `/frontend` | `3000` | `Full frontend AppShell, Leaflet canvas, dynamic dispatch mode, Hyderabad & SF/Seattle topologies` | `READY` |
 | `AGENT_2` | Vihann | `/apps/api` | `8000` | `API gateway, WebSocket, Dijkstra routing, emergency preemption` | `IN_PROGRESS` |
 | `AGENT_3` | Madhu | `/packages/ai-engine` | `8001` | `[TBD]` | `IDLE` |
-| `AGENT_4` | Mansi | `/packages/database` | `5432 / 6379` | `[TBD]` | `IDLE` |
+| `AGENT_4` | Mansi | `/packages/database` | `5432 / 6379` | `SQLite data layer (urbanflow.db, seed.py, db.py)` | `READY` |
 | `AGENT_5` | Shloka | `/packages/shared` & `/src/integrations` | `3001` | `[TBD]` | `IDLE` |
 
 ## Active Module Locks
@@ -26,19 +26,46 @@
 |---|---|---|---|---|
 | `/frontend` | `AGENT_1` | `LOCKED` | `AGENT_1` (Rohith) | Locked to Port 3000. Setup Vite + React + TS + Tailwind + AppShell + Leaflet |
 | `/apps/api` | `AGENT_2` | `LOCKED` | `AGENT_2` (Vihann) | FastAPI gateway, routing engine, and live WebSocket broadcaster on Port 8000 |
+| `/packages/database` | `AGENT_4` | `LOCKED` | `AGENT_4` (Mansi) | SQLite schema (nodes, edges, incidents), mock Hyderabad seeder, db.py functions |
 
 ## Canonical Contracts
 
 ### Entity Schemas
 
-```json
-{
-  "entity_name": {
-    "id": "string",
-    "created_at": "ISO-8601 datetime",
-    "updated_at": "ISO-8601 datetime"
-  }
-}
+#### SQLite Relational Schema (`urbanflow.db` - AGENT_4)
+
+```sql
+-- nodes table
+CREATE TABLE nodes (
+    node_id TEXT PRIMARY KEY,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    name TEXT NOT NULL
+);
+
+-- edges table
+CREATE TABLE edges (
+    edge_id TEXT PRIMARY KEY,
+    from_node TEXT NOT NULL,
+    to_node TEXT NOT NULL,
+    base_weight REAL NOT NULL,
+    congestion_score REAL DEFAULT 0.0,
+    is_blocked INTEGER DEFAULT 0,
+    effective_weight REAL NOT NULL,
+    FOREIGN KEY (from_node) REFERENCES nodes(node_id) ON DELETE CASCADE,
+    FOREIGN KEY (to_node) REFERENCES nodes(node_id) ON DELETE CASCADE
+);
+
+-- incidents table
+CREATE TABLE incidents (
+    incident_id TEXT PRIMARY KEY,
+    edge_id TEXT NOT NULL,
+    type TEXT NOT NULL, -- accident | blockage | congestion_spike
+    severity TEXT NOT NULL, -- low | medium | high
+    timestamp TEXT NOT NULL, -- ISO-8601
+    resolved INTEGER DEFAULT 0,
+    FOREIGN KEY (edge_id) REFERENCES edges(edge_id) ON DELETE CASCADE
+);
 ```
 
 ### WebSocket / Event Channels
@@ -76,16 +103,18 @@
 
 | Variable Name | Owner Agent | Required By | Description/Default Local Value |
 |---|---|---|---|
+| `DB_PATH` | `AGENT_4` | `AGENT_4`, `AGENT_2` | SQLite Database file path (`./urbanflow.db`) |
 | `VITE_API_BASE_URL` | `AGENT_1` | `AGENT_1` | REST Base URL (`http://localhost:8000`) |
 | `VITE_WS_URL` | `AGENT_1` | `AGENT_1` | WebSocket URL (`ws://localhost:8000/ws/live`) |
 | `API_PORT` | `AGENT_2` | `/apps/api` | `8000` |
 | `AI_ENGINE_PORT` | `AGENT_2` | `/apps/api` | `8001` |
-| `DB_PATH` | `AGENT_2` | `/apps/api`, `/packages/database` | `./urbanflow.db` |
 | `AGENT5_URL` | `AGENT_2` | `/apps/api` | `http://localhost:3001` |
 
 ## Chronological Sync & Breaking-Change Log (Append-Only at Top)
 
 - [2026-11-13 11:25] [AGENT_1] Merged backend from main: Integrated AGENT_2 `/apps/api` routes (`/routes/compute`, `/ws/live`, `/internal/incident`, `/graph`) with frontend HUD dispatch and emergency preemption on Port 3000.
+- [2026-11-13 11:05] [AGENT_4] Status: READY; module: /packages/database; task: Initialized SQLite schema (nodes, edges, incidents), seeded mock Hyderabad road network (14 nodes, 20 edges), and implemented db.py and seed.py.
+- [2026-11-13 10:55] [AGENT_4] Status: IN_PROGRESS; module: /packages/database; task: Setting up SQLite schema, seed data, and db.py module.
 - [2026-11-13 09:40] [AGENT_2] Status: IN_PROGRESS; module: /apps/api; task: API gateway, WebSocket, Dijkstra routing, emergency preemption.
 - [2026-11-13 01:50] [AGENT_1] Endpoint & Contract Sync: Defined strict Zod schemas (`graph_topology`, `telemetry_tick`, `forecast_update`, `agent_decision`) and implemented `fetchGraph`, `injectIncident`, `dispatchEmergency`, `useSinkSocket` with zero-hardcoded mock failover engine on Port 3000.
 - [2026-11-13 01:45] [AGENT_1] Status: READY; module: /frontend; task: Initialized foundational architecture (Vite, React 19, TS, Tailwind CSS, react-router-dom SaaS routes, AppShell, Sidebar, Topbar, DebugRouter, 404 Catch-All, and Button/Card/Input components on port 3000).
