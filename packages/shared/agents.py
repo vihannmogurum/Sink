@@ -1,4 +1,4 @@
-"""Multi-agent orchestration classes for UrbanFlow AI.
+"""Multi-agent orchestration classes for UrbanFlow AI (Project Sink).
 
 Contains:
 1. MonitorAgent: Periodically monitors edge forecasts, flags congestion > 0.7, updates DB, emits events.
@@ -8,10 +8,14 @@ Contains:
 All inter-agent communication flows strictly through the EventBus.
 All decisions are logged via XAI logger.
 All keys and field names are snake_case.
+Environment variables from AGENT_SYNC.md are respected.
 """
 
 from datetime import datetime, timezone
+import importlib
 import json
+import os
+from pathlib import Path
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -51,6 +55,23 @@ class DefaultMockDB:
         with self._lock:
             return list(self.edges.keys())
 
+    def get_all_edges(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            return list(self.edges.values())
+
+    def get_all_nodes(self) -> List[Dict[str, Any]]:
+        return [{"node_id": "node_1"}, {"node_id": "node_2"}, {"node_id": "node_3"}]
+
+
+def resolve_db(injected_db: Optional[Any] = None) -> Any:
+    """Resolve active database module: injected > packages.database.db > DefaultMockDB."""
+    if injected_db is not None:
+        return injected_db
+    try:
+        return importlib.import_module("packages.database.db")
+    except (ImportError, ModuleNotFoundError):
+        return DefaultMockDB()
+
 
 class MonitorAgent:
     """Agent that monitors edge traffic forecasts on a 5-second interval.
@@ -67,14 +88,17 @@ class MonitorAgent:
         event_bus: Optional[EventBus] = None,
         db: Optional[Any] = None,
         edges: Optional[List[str]] = None,
-        ai_engine_url: str = "http://localhost:8003",
+        ai_engine_url: Optional[str] = None,
         forecast_fetcher: Optional[Callable[[str], float]] = None,
         poll_interval: float = 5.0,
     ) -> None:
         self.event_bus = event_bus or default_event_bus
-        self.db = db or DefaultMockDB()
+        self.db = resolve_db(db)
         self.edges = edges or ["edge_1", "edge_2", "edge_3"]
-        self.ai_engine_url = ai_engine_url.rstrip("/")
+
+        # Default to AGENT_3 AI Engine port 8001 from AGENT_SYNC.md
+        default_ai_url = os.getenv("AI_ENGINE_URL", f"http://localhost:{os.getenv('AI_ENGINE_PORT', '8001')}")
+        self.ai_engine_url = (ai_engine_url or default_ai_url).rstrip("/")
         self.forecast_fetcher = forecast_fetcher
         self.poll_interval = poll_interval
 
@@ -93,8 +117,11 @@ class MonitorAgent:
         query_url = f"{self.ai_engine_url}/forecast?edge_id={urllib.parse.quote(edge_id)}"
         try:
             req = urllib.request.Request(query_url, headers={"User-Agent": "UrbanFlow-MonitorAgent/1.0"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+                # Handle standard {success, data, error} envelope if present
+                if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+                    data = data["data"]
                 return float(data.get("forecast_15min", 0.0))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError, KeyError):
             # Graceful fallback when AGENT_3 AI engine service is offline
@@ -103,7 +130,6 @@ class MonitorAgent:
     def step(self) -> List[Dict[str, Any]]:
         """Perform a single monitoring pass over all monitored edges."""
         updates: List[Dict[str, Any]] = []
-        # Query edges from db if available
         current_edges = getattr(self.db, "get_edges", lambda: self.edges)()
 
         for edge_id in current_edges:
@@ -144,8 +170,7 @@ class MonitorAgent:
         while not self._stop_event.is_set():
             try:
                 self.step()
-            except Exception as e:
-                # Keep thread resilient against uncaught exceptions
+            except Exception:
                 pass
             self._stop_event.wait(self.poll_interval)
 
@@ -161,7 +186,7 @@ class MonitorAgent:
         """Signal background thread to stop and wait for termination."""
         self._stop_event.set()
         if self._thread is not None:
-            self._thread.join(timeout=2.0)
+            self._thread.join(timeout=1.0)
             self._thread = None
 
 
@@ -181,7 +206,7 @@ class IncidentAnalystAgent:
         db: Optional[Any] = None,
     ) -> None:
         self.event_bus = event_bus or default_event_bus
-        self.db = db or DefaultMockDB()
+        self.db = resolve_db(db)
 
     def register_listeners(self) -> None:
         """Subscribe to incident_detected events on the event bus."""
@@ -247,11 +272,13 @@ class ResponseCoordinatorAgent:
     def __init__(
         self,
         event_bus: Optional[EventBus] = None,
-        routing_api_url: str = "http://localhost:8002",
+        routing_api_url: Optional[str] = None,
         route_computer: Optional[Callable[[str, str, str], Dict[str, Any]]] = None,
     ) -> None:
         self.event_bus = event_bus or default_event_bus
-        self.routing_api_url = routing_api_url.rstrip("/")
+        # Default to AGENT_2 API port 8000 from AGENT_SYNC.md
+        default_api_url = os.getenv("API_URL", f"http://localhost:{os.getenv('API_PORT', '8000')}")
+        self.routing_api_url = (routing_api_url or default_api_url).rstrip("/")
         self.route_computer = route_computer
 
     def register_listeners(self) -> None:
@@ -259,7 +286,13 @@ class ResponseCoordinatorAgent:
         self.event_bus.subscribe("route_recalculated_trigger", self.on_route_recalculated_trigger)
 
     def compute_route(
-        self, vehicle_id: str, priority: str, blocked_edge: str, reason: str
+        self,
+        vehicle_id: str,
+        priority: str,
+        blocked_edge: str,
+        reason: str,
+        from_node: Optional[str] = None,
+        to_node: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Call POST /routes/compute on AGENT_2's Routing API or fallback to mock route."""
         if self.route_computer:
@@ -269,10 +302,18 @@ class ResponseCoordinatorAgent:
                 pass
 
         compute_url = f"{self.routing_api_url}/routes/compute"
+        # Support both 'from'/'to' aliases expected by AGENT_2's RouteRequest
+        start_node = from_node or f"node_start_{blocked_edge}"
+        dest_node = to_node or f"node_end_{blocked_edge}"
+
         request_body = json.dumps(
             {
-                "vehicle_id": vehicle_id,
+                "from": start_node,
+                "to": dest_node,
+                "from_node": start_node,
+                "to_node": dest_node,
                 "priority": priority,
+                "vehicle_id": vehicle_id,
                 "blocked_edge": blocked_edge,
                 "reason": reason,
             }
@@ -284,14 +325,19 @@ class ResponseCoordinatorAgent:
                 data=request_body,
                 headers={"Content-Type": "application/json", "User-Agent": "UrbanFlow-ResponseCoordinator/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                resp_json = json.loads(resp.read().decode("utf-8"))
+                # Unwrap {success: True, data: {...}} envelope from AGENT_2's API
+                if isinstance(resp_json, dict) and "data" in resp_json and isinstance(resp_json["data"], dict):
+                    return resp_json["data"]
+                return resp_json
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
             # Fallback path computation if AGENT_2 service is offline or in test environment
-            alt_route = [f"detour_start_{blocked_edge}", "detour_mid", f"detour_end_{blocked_edge}"]
+            alt_route = [start_node, f"detour_mid_{blocked_edge}", dest_node]
             return {
                 "vehicle_id": vehicle_id,
                 "route": alt_route,
+                "total_weight": 3.8 if priority == "emergency" else 5.2,
                 "total_distance": 3.8 if priority == "emergency" else 5.2,
                 "estimated_duration": 4.5 if priority == "emergency" else 8.0,
                 "status": "computed_fallback",
@@ -307,14 +353,12 @@ class ResponseCoordinatorAgent:
         trigger_reason = payload.get("reason", f"Edge {blocked_edge} blocked.")
         affected_vehicles = payload.get("affected_vehicles", [])
 
-        # If no specific vehicles are listed, route a default affected vehicle
         if not affected_vehicles:
             affected_vehicles = ["VEH-101"]
 
         dispatched_events: List[Dict[str, Any]] = []
 
         for vehicle_id in affected_vehicles:
-            # Determine vehicle priority
             is_emergency = str(vehicle_id).startswith("EMG-")
             priority = "emergency" if is_emergency else "normal"
 
@@ -343,7 +387,7 @@ class ResponseCoordinatorAgent:
             route_result: RouteResult = {
                 "vehicle_id": vehicle_id,
                 "route": compute_result.get("route", [f"alt_for_{blocked_edge}"]),
-                "total_distance": float(compute_result.get("total_distance", 4.2)),
+                "total_distance": float(compute_result.get("total_distance", compute_result.get("total_weight", 4.2))),
                 "estimated_duration": float(compute_result.get("estimated_duration", 6.0)),
                 "priority": priority,
                 "reason": english_reason,

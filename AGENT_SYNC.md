@@ -129,11 +129,15 @@ All shared types are strictly defined in `packages/shared/types.py` with `snake_
 
 | Variable Name | Owner Agent | Required By | Description/Default Local Value |
 |---|---|---|---|
-| `[TBD]` | `[TBD]` | `[TBD]` | `[TBD]` |
 | `API_PORT` | `AGENT_2` | `/apps/api` | `8000` |
-| `AI_ENGINE_PORT` | `AGENT_2` | `/apps/api` | `8001` |
+| `API_URL` | `AGENT_5` | `/packages/shared` | `http://localhost:8000` |
+| `AI_ENGINE_PORT` | `AGENT_3` | `/apps/api`, `/packages/ai-engine` | `8001` |
+| `AI_ENGINE_URL` | `AGENT_5` | `/packages/shared` | `http://localhost:8001` |
 | `DB_PATH` | `AGENT_2` | `/apps/api`, `/packages/database` | `./urbanflow.db` |
 | `AGENT5_URL` | `AGENT_2` | `/apps/api` | `http://localhost:3001` |
+| `AGENT5_PORT` | `AGENT_5` | `/src/integrations` | `3001` |
+| `XAI_LOG_PATH` | `AGENT_5` | `/packages/shared` | `./xai_log.jsonl` |
+| `POLL_INTERVAL` | `AGENT_5` | `/packages/shared` | `5.0` |
 
 ## Chronological Sync & Breaking-Change Log (Append-Only at Top)
 
