@@ -12,10 +12,20 @@ import { TrafficHudProvider, useTrafficHud } from '../context/TrafficHudContext'
 const TrafficMapContent: React.FC = () => {
   const [graph, setGraph] = useState<GraphTopology | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  // Initial empty array: no hardcoded emergency corridor rendered on startup
   const [emergencyEdgeIds, setEmergencyEdgeIds] = useState<string[]>([]);
 
   const { isConnected, isMockFallback, latestTick, latestForecast, agentDecisions } = useSinkSocket();
-  const { selectedEdgeId } = useTrafficHud();
+  const {
+    selectedEdgeId,
+    dispatchMode,
+    setDispatchMode,
+    selectedOrigin,
+    setSelectedOrigin,
+    selectedDestination,
+    setSelectedDestination,
+    cancelDispatchMode,
+  } = useTrafficHud();
 
   useEffect(() => {
     fetchGraph().then((data) => {
@@ -23,20 +33,60 @@ const TrafficMapContent: React.FC = () => {
     });
   }, []);
 
-  const handleDispatchEmergency = async () => {
-    if (!graph || graph.nodes.length < 2) return;
-    const res = await dispatchEmergency({
-      origin_node_id: graph.nodes[0].node_id,
-      destination_node_id: graph.nodes[graph.nodes.length - 1].node_id,
-      priority_tier: 'priority_1_code_3',
-      vehicle_type: 'ambulance',
-    });
-    setEmergencyEdgeIds(['edge_emb_mont', 'edge_mont_pow']);
-    setActionNotice(`Emergency green-wave corridor active: ${res.dispatch_id}`);
-    setTimeout(() => {
-      setEmergencyEdgeIds([]);
-      setActionNotice(null);
-    }, 8000);
+  // Handle entering Dispatch Mode
+  const handleStartDispatchMode = () => {
+    setDispatchMode(true);
+    setSelectedOrigin(null);
+    setSelectedDestination(null);
+    setActionNotice('Dispatch Mode: Click any node to select Origin, then click Destination.');
+  };
+
+  // Handle Node clicks while in Dispatch Mode
+  const handleNodeClickInDispatchMode = async (nodeId: string) => {
+    if (!dispatchMode || !graph) return;
+
+    if (!selectedOrigin) {
+      // Step 1: Select Origin
+      setSelectedOrigin(nodeId);
+      const originNode = graph.nodes.find((n) => n.node_id === nodeId);
+      setActionNotice(`Origin set: ${originNode?.name || nodeId}. Now click Destination node.`);
+    } else if (!selectedDestination && nodeId !== selectedOrigin) {
+      // Step 2: Select Destination
+      setSelectedDestination(nodeId);
+      const destNode = graph.nodes.find((n) => n.node_id === nodeId);
+      const originNode = graph.nodes.find((n) => n.node_id === selectedOrigin);
+      setActionNotice(`Routing emergency wave: ${originNode?.name} → ${destNode?.name}...`);
+
+      try {
+        // Step 3: Trigger dispatch API / mock engine with user-selected endpoints
+        const res = await dispatchEmergency(
+          {
+            origin_node_id: selectedOrigin,
+            destination_node_id: nodeId,
+            priority_tier: 'priority_1_code_3',
+            vehicle_type: 'ambulance',
+          },
+          graph
+        );
+
+        // Step 4: Exit dispatch mode and render the dynamically calculated path
+        setEmergencyEdgeIds(res.path_edge_ids);
+        cancelDispatchMode();
+        setActionNotice(
+          `Emergency green wave engaged: ${res.dispatch_id} (${res.path_edge_ids.length} corridor edges active)`
+        );
+
+        // Auto-revert after 15 seconds
+        setTimeout(() => {
+          setEmergencyEdgeIds([]);
+          setActionNotice(null);
+        }, 15000);
+      } catch (err) {
+        console.error('Dispatch failed:', err);
+        setActionNotice('Failed to dispatch emergency preemption.');
+        cancelDispatchMode();
+      }
+    }
   };
 
   const selectedEdge = graph?.edges.find((e) => e.edge_id === selectedEdgeId) || null;
@@ -48,15 +98,17 @@ const TrafficMapContent: React.FC = () => {
     <div className="relative h-[calc(100vh-80px)] w-full overflow-hidden rounded-xl bg-slate-950">
       {/* Tactical Horizon Scrubber Pill (Top Centered) */}
       <HorizonScrubber
-        onDispatchEmergency={handleDispatchEmergency}
+        onStartDispatchMode={handleStartDispatchMode}
         isEmergencyActive={emergencyEdgeIds.length > 0}
       />
 
-      {/* Floating Left Incident Feed */}
-      <IncidentFeed
-        anomalies={latestTick?.cv_anomalies || []}
-        graph={graph}
-      />
+      {/* Floating Left Incident Feed (Hidden in dispatch selection mode) */}
+      {!dispatchMode && (
+        <IncidentFeed
+          anomalies={latestTick?.cv_anomalies || []}
+          graph={graph}
+        />
+      )}
 
       {/* Main Full-Bleed Map Canvas */}
       <SinkMapCanvas
@@ -64,16 +116,19 @@ const TrafficMapContent: React.FC = () => {
         latestTick={latestTick}
         forecastUpdate={latestForecast}
         emergencyEdgeIds={emergencyEdgeIds}
+        onNodeClickInDispatchMode={handleNodeClickInDispatchMode}
       />
 
       {/* Floating Chaos Dock (Bottom Centered) */}
-      <ChaosDock
-        activeEdgeId={selectedEdgeId || 'edge_emb_mont'}
-        onIncidentInjected={(_id, msg) => {
-          setActionNotice(msg);
-          setTimeout(() => setActionNotice(null), 5000);
-        }}
-      />
+      {!dispatchMode && (
+        <ChaosDock
+          activeEdgeId={selectedEdgeId || 'edge_emb_mont'}
+          onIncidentInjected={(_id, msg) => {
+            setActionNotice(msg);
+            setTimeout(() => setActionNotice(null), 5000);
+          }}
+        />
+      )}
 
       {/* Right XAI Inspector Slide-Over Drawer */}
       <AgentAuditDrawer
@@ -86,8 +141,14 @@ const TrafficMapContent: React.FC = () => {
 
       {/* System Toast Notice */}
       {actionNotice && (
-        <div className="absolute top-20 right-4 z-[450] max-w-sm rounded-lg bg-emerald-500/90 text-white p-3 text-xs font-semibold shadow-2xl backdrop-blur-md border border-emerald-400/40 animate-fadeIn">
-          {actionNotice}
+        <div className="absolute top-20 right-4 z-[450] max-w-sm rounded-lg bg-emerald-500/95 text-white p-3 text-xs font-semibold shadow-2xl backdrop-blur-md border border-emerald-400/40 animate-fadeIn flex items-center justify-between gap-3">
+          <span>{actionNotice}</span>
+          <button
+            onClick={() => setActionNotice(null)}
+            className="text-white/80 hover:text-white underline text-[10px]"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

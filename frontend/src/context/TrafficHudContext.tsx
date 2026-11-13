@@ -11,6 +11,15 @@ interface TrafficHudContextType {
   flyToCoords: [number, number] | null;
   triggerFlyTo: (coords: [number, number], edgeId?: string) => void;
   resetSelection: () => void;
+
+  // Dynamic Dispatch Mode states
+  dispatchMode: boolean;
+  setDispatchMode: (mode: boolean) => void;
+  selectedOrigin: string | null;
+  setSelectedOrigin: (nodeId: string | null) => void;
+  selectedDestination: string | null;
+  setSelectedDestination: (nodeId: string | null) => void;
+  cancelDispatchMode: () => void;
 }
 
 const TrafficHudContext = createContext<TrafficHudContextType | undefined>(undefined);
@@ -20,6 +29,11 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [flyToCoords, setFlyToCoords] = useState<[number, number] | null>(null);
+
+  // Dispatch selection mode state
+  const [dispatchMode, setDispatchMode] = useState<boolean>(false);
+  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(null);
 
   const setHorizon = (newHorizon: TimeHorizon) => {
     console.log(`[TrafficHud] Forecast Horizon State Changed: ${newHorizon.toUpperCase()}`);
@@ -41,16 +55,27 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsDrawerOpen(false);
   };
 
-  // Close drawer when Escape is pressed
+  const cancelDispatchMode = () => {
+    console.log('[TrafficHud] Cancelling dispatch selection mode.');
+    setDispatchMode(false);
+    setSelectedOrigin(null);
+    setSelectedDestination(null);
+  };
+
+  // Close drawer or cancel dispatch on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isDrawerOpen) {
-        resetSelection();
+      if (e.key === 'Escape') {
+        if (dispatchMode) {
+          cancelDispatchMode();
+        } else if (isDrawerOpen) {
+          resetSelection();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawerOpen]);
+  }, [isDrawerOpen, dispatchMode]);
 
   return (
     <TrafficHudContext.Provider
@@ -64,6 +89,13 @@ export const TrafficHudProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         flyToCoords,
         triggerFlyTo,
         resetSelection,
+        dispatchMode,
+        setDispatchMode,
+        selectedOrigin,
+        setSelectedOrigin,
+        selectedDestination,
+        setSelectedDestination,
+        cancelDispatchMode,
       }}
     >
       {children}

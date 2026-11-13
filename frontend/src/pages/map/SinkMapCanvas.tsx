@@ -10,13 +10,13 @@ interface SinkMapCanvasProps {
   latestTick: TelemetryTick | null;
   forecastUpdate?: ForecastUpdate | null;
   emergencyEdgeIds?: string[];
+  onNodeClickInDispatchMode?: (nodeId: string) => void;
 }
 
 // Controller to invalidate map size on container resize/mount
 function MapResizeController() {
   const map = useMap();
   useEffect(() => {
-    // Invalidate size immediately and slightly after to catch flex layout reflows
     map.invalidateSize();
     const timer1 = setTimeout(() => map.invalidateSize(), 100);
     const timer2 = setTimeout(() => map.invalidateSize(), 500);
@@ -44,9 +44,19 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
   latestTick,
   forecastUpdate,
   emergencyEdgeIds = [],
+  onNodeClickInDispatchMode,
 }) => {
-  const { horizon, selectedEdgeId, setSelectedEdgeId, setIsDrawerOpen, flyToCoords, triggerFlyTo } =
-    useTrafficHud();
+  const {
+    horizon,
+    selectedEdgeId,
+    setSelectedEdgeId,
+    setIsDrawerOpen,
+    flyToCoords,
+    triggerFlyTo,
+    dispatchMode,
+    selectedOrigin,
+    selectedDestination,
+  } = useTrafficHud();
 
   const defaultCenter: LatLngExpression = [37.7844, -122.4079];
 
@@ -97,8 +107,15 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
   }, [latestTick, forecastUpdate, horizon, graph]);
 
   const handleEdgeClick = (edgeId: string) => {
+    if (dispatchMode) return; // In dispatch selection mode, node selection takes priority
     setSelectedEdgeId(edgeId);
     setIsDrawerOpen(true);
+  };
+
+  const handleNodeClick = (nodeId: string) => {
+    if (dispatchMode && onNodeClickInDispatchMode) {
+      onNodeClickInDispatchMode(nodeId);
+    }
   };
 
   return (
@@ -113,7 +130,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
         <MapResizeController />
         <MapFlyController coords={flyToCoords} />
 
-        {/* High-Performance Public Dark Matter Map (Esri Dark Canvas - Zero API key required, no watermark) */}
+        {/* High-Performance Public Dark Matter Map (Esri Dark Canvas) */}
         <TileLayer
           url="https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
           maxZoom={16}
@@ -124,7 +141,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           maxZoom={16}
         />
 
-        {/* Dynamic Road Edges */}
+        {/* Dynamic Road Edges: Base graph rendered cleanly */}
         {graph?.edges.map((edge) => {
           const source = nodeMap.get(edge.source_node_id);
           const target = nodeMap.get(edge.target_node_id);
@@ -147,8 +164,8 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                   positions={positions}
                   pathOptions={{
                     color: isEmergency ? '#3B82F6' : '#FFFFFF',
-                    weight: 10,
-                    opacity: 0.4,
+                    weight: isEmergency ? 12 : 10,
+                    opacity: isEmergency ? 0.6 : 0.4,
                     lineCap: 'round',
                   }}
                 />
@@ -158,7 +175,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                 positions={positions}
                 pathOptions={{
                   color,
-                  weight: isSelected ? 6 : 4,
+                  weight: isEmergency ? 6 : isSelected ? 6 : 4,
                   opacity: 0.95,
                   lineCap: 'round',
                   dashArray: edge.road_class === 'collector' ? '6, 6' : undefined,
@@ -172,6 +189,11 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
                     <div className="font-bold text-slate-950">
                       {source.name.split(' ')[0]} → {target.name.split(' ')[0]}
                     </div>
+                    {isEmergency && (
+                      <div className="text-[11px] font-bold text-blue-600">
+                        ⚡ EMERGENCY CLEAR CORRIDOR ACTIVE
+                      </div>
+                    )}
                     <div className="text-[11px] text-slate-700">
                       Horizon: <span className="font-semibold uppercase">{horizon}</span>
                     </div>
@@ -185,71 +207,87 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
           );
         })}
 
-        {/* Node Markers */}
+        {/* Node Markers with dynamic Start / End dispatch mode states */}
         {graph?.nodes.map((node) => {
           const isHub = node.intersection_type === 'freeway_ramp' || node.intersection_type === 'roundabout';
-          const icon = createIntersectionIcon(node.name, isHub);
+          const isOrigin = selectedOrigin === node.node_id;
+          const isDestination = selectedDestination === node.node_id;
+          const isSelectable = dispatchMode && !isOrigin;
+
+          const icon = createIntersectionIcon(
+            node.name,
+            isHub,
+            isSelectable,
+            isOrigin,
+            isDestination
+          );
 
           return (
             <Marker
               key={node.node_id}
               position={[node.coordinates.lat, node.coordinates.lng]}
               icon={icon}
-            >
-              <Popup className="sink-custom-popup">
-                <div className="p-2 text-slate-900 font-sans text-xs">
-                  <div className="font-bold text-sm text-slate-950">{node.name}</div>
-                  <div className="text-slate-500 text-[11px] mt-0.5">{node.zone}</div>
-                  <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-1.5 text-[10px] font-mono">
-                    <span className="uppercase text-slate-400">{node.intersection_type}</span>
-                    <span className="text-emerald-600 font-semibold uppercase">{node.status}</span>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-
-        {/* Anomalies */}
-        {latestTick?.cv_anomalies.map((anom) => {
-          const targetEdge = graph?.edges.find((e) => e.edge_id === anom.edge_id);
-          if (!targetEdge) return null;
-          const source = nodeMap.get(targetEdge.source_node_id);
-          const target = nodeMap.get(targetEdge.target_node_id);
-          if (!source || !target) return null;
-
-          const midLat = (source.lat + target.lat) / 2;
-          const midLng = (source.lng + target.lng) / 2;
-
-          const icon = createAnomalyIcon(anom.severity);
-
-          return (
-            <Marker
-              key={anom.anomaly_id}
-              position={[midLat, midLng]}
-              icon={icon}
               eventHandlers={{
-                click: () => {
-                  triggerFlyTo([midLat, midLng], anom.edge_id);
-                },
+                click: () => handleNodeClick(node.node_id),
               }}
             >
-              <Popup>
-                <div className="p-2 text-slate-900 font-sans text-xs">
-                  <div className="font-bold text-rose-600 uppercase flex items-center gap-1">
-                    <span>{anom.severity} Alert</span>
+              {!dispatchMode && (
+                <Popup className="sink-custom-popup">
+                  <div className="p-2 text-slate-900 font-sans text-xs">
+                    <div className="font-bold text-sm text-slate-950">{node.name}</div>
+                    <div className="text-slate-500 text-[11px] mt-0.5">{node.zone}</div>
+                    <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-1.5 text-[10px] font-mono">
+                      <span className="uppercase text-slate-400">{node.intersection_type}</span>
+                      <span className="text-emerald-600 font-semibold uppercase">{node.status}</span>
+                    </div>
                   </div>
-                  <div className="font-semibold text-slate-800 mt-1 capitalize">
-                    {anom.type.replace(/_/g, ' ')}
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    CV Confidence: {Math.round(anom.confidence_score * 100)}%
-                  </div>
-                </div>
-              </Popup>
+                </Popup>
+              )}
             </Marker>
           );
         })}
+
+        {/* CV Anomalies */}
+        {!dispatchMode &&
+          latestTick?.cv_anomalies.map((anom) => {
+            const targetEdge = graph?.edges.find((e) => e.edge_id === anom.edge_id);
+            if (!targetEdge) return null;
+            const source = nodeMap.get(targetEdge.source_node_id);
+            const target = nodeMap.get(targetEdge.target_node_id);
+            if (!source || !target) return null;
+
+            const midLat = (source.lat + target.lat) / 2;
+            const midLng = (source.lng + target.lng) / 2;
+
+            const icon = createAnomalyIcon(anom.severity);
+
+            return (
+              <Marker
+                key={anom.anomaly_id}
+                position={[midLat, midLng]}
+                icon={icon}
+                eventHandlers={{
+                  click: () => {
+                    triggerFlyTo([midLat, midLng], anom.edge_id);
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="p-2 text-slate-900 font-sans text-xs">
+                    <div className="font-bold text-rose-600 uppercase flex items-center gap-1">
+                      <span>{anom.severity} Alert</span>
+                    </div>
+                    <div className="font-semibold text-slate-800 mt-1 capitalize">
+                      {anom.type.replace(/_/g, ' ')}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      CV Confidence: {Math.round(anom.confidence_score * 100)}%
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
       </MapContainer>
     </div>
   );

@@ -78,14 +78,68 @@ export async function injectIncident(
   }
 }
 
+export interface EmergencyDispatchResult {
+  dispatch_id: string;
+  clear_corridor_active: boolean;
+  path_edge_ids: string[];
+}
+
+/**
+ * Calculates a dynamic path between two nodes in the graph topology
+ */
+function calculatePathEdges(originId: string, destId: string, graph: GraphTopology): string[] {
+  // Direct edge check
+  const directEdge = graph.edges.find(
+    (e) =>
+      (e.source_node_id === originId && e.target_node_id === destId) ||
+      (e.source_node_id === destId && e.target_node_id === originId)
+  );
+  if (directEdge) return [directEdge.edge_id];
+
+  // Breadth-first search / path traversal
+  const queue: { nodeId: string; path: string[] }[] = [{ nodeId: originId, path: [] }];
+  const visited = new Set<string>([originId]);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current.nodeId === destId) {
+      return current.path;
+    }
+
+    for (const edge of graph.edges) {
+      let nextNodeId: string | null = null;
+      if (edge.source_node_id === current.nodeId) {
+        nextNodeId = edge.target_node_id;
+      } else if (edge.target_node_id === current.nodeId) {
+        nextNodeId = edge.source_node_id;
+      }
+
+      if (nextNodeId && !visited.has(nextNodeId)) {
+        visited.add(nextNodeId);
+        queue.push({
+          nodeId: nextNodeId,
+          path: [...current.path, edge.edge_id],
+        });
+      }
+    }
+  }
+
+  // Fallback: Return first connecting edge if disconnected
+  return graph.edges.length > 0 ? [graph.edges[0].edge_id] : [];
+}
+
 /**
  * Dispatch Emergency Preemption
- * Fails over cleanly if AGENT_2 backend is offline.
+ * Computes dynamic corridor path and fails over cleanly if AGENT_2 backend is offline.
  */
 export async function dispatchEmergency(
-  payload: EmergencyDispatchPayload
-): Promise<{ dispatch_id: string; clear_corridor_active: boolean }> {
+  payload: EmergencyDispatchPayload,
+  graphTopology?: GraphTopology | null
+): Promise<EmergencyDispatchResult> {
   emergency_dispatch_payload_schema.parse(payload);
+
+  const topology = graphTopology || getMockGraphTopology();
+  const calculatedEdges = calculatePathEdges(payload.origin_node_id, payload.destination_node_id, topology);
 
   try {
     const res = await fetch(`${API_BASE_URL}/emergency/dispatch`, {
@@ -101,14 +155,19 @@ export async function dispatchEmergency(
 
     const json = await res.json();
     if (json.success && json.data) {
-      return json.data;
+      return {
+        dispatch_id: json.data.dispatch_id || `emg_${Date.now()}`,
+        clear_corridor_active: true,
+        path_edge_ids: json.data.path_edge_ids || calculatedEdges,
+      };
     }
     throw new Error(json.error?.message || 'Emergency dispatch failed');
   } catch (err) {
-    console.warn('[API Service] Failover: Mocking emergency preemption corridor:', err);
+    console.warn('[API Service] Failover: Calculating synthetic emergency preemption corridor:', err);
     return {
       dispatch_id: `emg_mock_${Date.now()}`,
       clear_corridor_active: true,
+      path_edge_ids: calculatedEdges,
     };
   }
 }
