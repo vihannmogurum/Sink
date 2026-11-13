@@ -105,6 +105,7 @@ export const AgentAuditDrawer: React.FC<AgentAuditDrawerProps> = ({
             <img
               src={`http://localhost:8000/api/v1/cameras/${cameraId}/frame?t=${Date.now()}`}
               alt={`Live Camera Feed ${cameraId}`}
+              key={`${cameraId}-${Date.now()}`}
               className="h-full w-full object-cover"
               onError={(e) => {
                 // Fallback graceful graphic if API is disconnected
