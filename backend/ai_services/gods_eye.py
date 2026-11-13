@@ -5,7 +5,7 @@ import math
 import io
 import os
 from typing import Dict, Any, List
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 from backend.state_store.store import StateStore
 
@@ -68,7 +68,7 @@ class GodsEyeEngine:
         self.camera_configs = {c["camera_id"]: c for c in CAMERA_EDGE_MAPPINGS}
         self.active_anomalies: Dict[str, Dict[str, Any]] = {}
         self.frame_cache: Dict[str, bytes] = {}
-        self.base_image = self._load_or_create_base_image()
+        self.base_image = self._load_base_image()
 
     @classmethod
     def get_instance(cls) -> "GodsEyeEngine":
@@ -76,17 +76,31 @@ class GodsEyeEngine:
             cls._instance = GodsEyeEngine()
         return cls._instance
 
-    def _load_or_create_base_image(self) -> Image.Image:
+    def _load_base_image(self) -> Image.Image:
         asset_path = os.path.join(os.path.dirname(__file__), "..", "assets", "traffic_real.jpg")
         if os.path.exists(asset_path):
             try:
                 img = Image.open(asset_path).convert("RGB")
-                return img.resize((640, 360))
-            except Exception:
-                pass
-        # Fallback dark traffic textured image
-        img = Image.new("RGB", (640, 360), color=(15, 23, 42))
-        return img
+                # Crop horizontally centered 640x360 from the dense traffic portion (middle to lower section)
+                w, h = img.size
+                target_w, target_h = 640, 360
+                
+                # Take traffic rich region around y=250..610
+                crop_y1 = max(0, min(h - target_h, int(h * 0.32)))
+                crop_y2 = crop_y1 + target_h
+                crop_x1 = max(0, (w - target_w) // 2)
+                crop_x2 = crop_x1 + target_w
+                
+                cropped = img.crop((crop_x1, crop_y1, crop_x2, crop_y2))
+                return cropped.resize((640, 360))
+            except Exception as e:
+                print(f"[GodsEye] Error loading traffic image: {e}")
+
+        # Fallback dark frame
+        return Image.new("RGB", (640, 360), color=(15, 23, 42))
+
+    def reload_base_image(self):
+        self.base_image = self._load_base_image()
 
     def process_camera_tick(self, camera_id: str) -> Dict[str, Any]:
         """Real CV Metrics extraction simulation for camera feed."""
@@ -128,89 +142,89 @@ class GodsEyeEngine:
         }
 
     def generate_annotated_frame(self, camera_id: str) -> bytes:
-        """Generate realistic live camera feed with real background highway photo + YOLO annotations."""
+        """Generate live annotated Hyderabad CCTV feed with real traffic background + moving YOLO boxes."""
         cfg = self.camera_configs.get(camera_id, CAMERA_EDGE_MAPPINGS[0])
         metrics = self.process_camera_tick(camera_id)
         w, h = 640, 360
         now = time.time()
 
-        # Copy the base highway photo
+        # Copy authentic Hyderabad road background
         img = self.base_image.copy()
         
-        # Subtle CCTV lens tint / surveillance color tone
-        cctv_tint = Image.new("RGB", (w, h), color=(10, 25, 45))
-        img = Image.blend(img, cctv_tint, alpha=0.25)
+        # Subtle CCTV surveillance color grade
+        cctv_tint = Image.new("RGB", (w, h), color=(10, 25, 35))
+        img = Image.blend(img, cctv_tint, alpha=0.18)
         draw = ImageDraw.Draw(img)
 
-        # Draw moving vehicles & dynamic YOLO bounding boxes
-        v_count = metrics["vehicle_count"]
-        cam_seed = hash(camera_id) % 100
-        
-        # 6-10 realistic vehicle positions moving along lane coordinates
-        vehicle_tracks = [
-            # (start_x, start_y, target_x, target_y, scale_w, scale_h, base_spd, label)
-            (210, 150, 80, 330, 80, 55, 38, "CAR"),
-            (270, 145, 230, 335, 75, 50, 42, "CAR"),
-            (350, 145, 410, 335, 95, 65, 34, "BUS"),
-            (390, 150, 520, 330, 70, 48, 45, "CAR"),
-            (310, 135, 320, 220, 40, 30, 40, "AUTO"),
-            (250, 135, 180, 230, 42, 32, 36, "TAXI"),
+        # Dynamic vehicles tracked in Hyderabad traffic
+        # Auto-rickshaws, city buses, cabs, motorcycles, commercial vehicles
+        cam_seed = hash(camera_id) % 50
+        vehicles = [
+            # (base_x, base_y, rx, ry, bw, bh, base_spd, label)
+            (70, 160, 45, 120, 65, 48, 28, "AUTO"),
+            (155, 175, 40, 110, 72, 54, 32, "CAR"),
+            (260, 145, 60, 130, 95, 70, 22, "TSRTC BUS"),
+            (380, 170, 50, 115, 68, 50, 35, "CAB"),
+            (475, 185, 45, 105, 55, 42, 28, "AUTO"),
+            (550, 200, 35, 95, 42, 38, 38, "BIKE"),
+            (210, 225, 50, 85, 75, 55, 30, "CAR"),
         ]
 
-        for idx, (sx, sy, tx, ty, bw_max, bh_max, base_s, label) in enumerate(vehicle_tracks):
-            progress = ((now * 0.45 * (base_s / 40.0) + (idx * 0.28) + (cam_seed * 0.05)) % 1.0)
+        for idx, (bx_base, by_base, rx, ry, bw, bh, base_spd, label) in enumerate(vehicles):
+            # Time-based oscillation to simulate vehicles advancing in traffic flow
+            prog = ((now * 0.4 * (base_spd / 30.0) + (idx * 0.22) + (cam_seed * 0.08)) % 1.0)
             
-            # Interpolate position
-            curr_x = sx + (tx - sx) * progress
-            curr_y = sy + (ty - sy) * progress
+            # Simulated forward traffic movement down arterial
+            cx = bx_base + int(math.sin((now * 0.5) + idx) * 8)
+            cy = by_base + int(prog * ry)
             
-            # Scale with perspective distance
-            scale = 0.35 + (progress * 0.75)
-            bw = int(bw_max * scale)
-            bh = int(bh_max * scale)
-            
-            bx = int(curr_x - bw // 2)
-            by = int(curr_y - bh // 2)
+            # Perspective scaling
+            scale = 0.85 + (prog * 0.35)
+            w_box = int(bw * scale)
+            h_box = int(bh * scale)
+            x1 = cx - w_box // 2
+            y1 = cy - h_box // 2
+            x2 = x1 + w_box
+            y2 = y1 + h_box
 
-            track_id = f"TRK-{100 + idx}"
-            v_speed = max(8, int(metrics["estimated_speed_kmh"] + ((idx % 3) * 3) - 3))
+            track_id = f"TRK-{101 + idx}"
+            v_spd = max(12, int(metrics["estimated_speed_kmh"] + ((idx % 3) * 2) - 2))
             
-            # Color: Rose for anomaly/critical speed drop, Emerald for normal
+            # Anomaly highlights in Rose/Red, regular in Emerald
             is_anomaly = metrics["anomaly_score"] > 0.70 and idx in (1, 2)
             box_color = (244, 63, 94) if is_anomaly else (16, 185, 129)
             
-            # Bounding box
-            draw.rectangle([bx, by, bx + bw, by + bh], outline=box_color, width=2)
+            # YOLO Bounding Box
+            draw.rectangle([x1, y1, x2, y2], outline=box_color, width=2)
             
-            # Tracking Velocity Vector line
-            draw.line([(bx + bw // 2, by + bh), (bx + bw // 2, by + bh + int(12 * scale))], fill=box_color, width=2)
+            # Velocity vector
+            draw.line([(cx, y2), (cx, y2 + 10)], fill=box_color, width=2)
             
-            # YOLO Tag banner
-            tag_text = f"#{track_id} {label} {v_speed}km/h"
-            tag_w = len(tag_text) * 6 + 6
-            draw.rectangle([bx, by - 14, bx + tag_w, by], fill=box_color)
-            draw.text((bx + 3, by - 12), tag_text, fill=(255, 255, 255))
+            # Bounding box tag
+            tag = f"#{track_id} {label} {v_spd}k"
+            tag_w = len(tag) * 6 + 6
+            draw.rectangle([x1, y1 - 13, x1 + tag_w, y1], fill=box_color)
+            draw.text((x1 + 3, y1 - 12), tag, fill=(255, 255, 255))
 
-        # GOD'S EYE SURVEILLANCE HUD OVERLAYS
-        # Top Header Bar
-        draw.rectangle([0, 0, w, 28], fill=(2, 6, 23, 220))
-        draw.text((12, 7), f"● LIVE GOD'S EYE CV // {cfg['camera_id']} // {cfg['name']}", fill=(16, 185, 129))
+        # HYDERABAD POLICE / GHMC TRAFFIC SURVEILLANCE OVERLAY HUD
+        # Top Header
+        draw.rectangle([0, 0, w, 28], fill=(2, 6, 23, 230))
+        draw.text((12, 7), f"● HYDERABAD CV SURVEILLANCE // {cfg['camera_id']} // {cfg['name']}", fill=(16, 185, 129))
         draw.text((475, 7), time.strftime("%Y-%m-%d %H:%M:%S IST"), fill=(148, 163, 184))
 
-        # Bottom Metrics Bar
-        draw.rectangle([0, h - 28, w, h], fill=(2, 6, 23, 230))
-        hud_text = f"VEHICLES: {metrics['vehicle_count']} | DENSITY: {metrics['occupancy_pct']}% | OPTICAL SPEED: {metrics['estimated_speed_kmh']} km/h | ANOMALY: {int(metrics['anomaly_score']*100)}%"
+        # Bottom Telemetry Bar
+        draw.rectangle([0, h - 28, w, h], fill=(2, 6, 23, 235))
+        hud_text = f"VEHICLES: {metrics['vehicle_count']} | DENSITY: {metrics['occupancy_pct']}% | SPEED: {metrics['estimated_speed_kmh']} km/h | ANOMALY: {int(metrics['anomaly_score']*100)}%"
         hud_color = (244, 63, 94) if metrics["anomaly_score"] > 0.7 else (56, 189, 248)
         draw.text((12, h - 20), hud_text, fill=hud_color)
 
-        # Crosshair optical center
-        cx, cy = 320, 180
-        draw.line([(cx - 20, cy), (cx + 20, cy)], fill=(56, 189, 248), width=1)
-        draw.line([(cx, cy - 20), (cx, cy + 20)], fill=(56, 189, 248), width=1)
+        # Crosshair optical alignment
+        draw.line([(300, 180), (340, 180)], fill=(56, 189, 248, 160), width=1)
+        draw.line([(320, 160), (320, 200)], fill=(56, 189, 248, 160), width=1)
 
-        # Output JPEG
+        # Save JPEG
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
+        img.save(buf, format="JPEG", quality=88)
         raw_bytes = buf.getvalue()
         self.frame_cache[camera_id] = raw_bytes
         return raw_bytes
