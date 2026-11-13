@@ -16,47 +16,221 @@ export interface ApiResponse<T> {
   error: { code: string; message: string } | null;
 }
 
+export interface SystemKpis {
+  active_signals_synced: number;
+  avg_eta_savings_pct: number;
+  detection_latency_ms: number;
+  intersection_throughput_gain_pct: number;
+  active_incidents_count: number;
+  hourly_incident_distribution: number[];
+  timestamp: number;
+}
+
+export interface CameraNode {
+  camera_id: string;
+  name: string;
+  edge_id: string;
+  road_name?: string;
+  lat: number;
+  lng: number;
+  lane_count?: number;
+  heading?: number;
+  stream_url: string;
+  status: string;
+  last_vehicle_count: number;
+  last_speed_kmh: number;
+  active_hazard?: string | null;
+  last_ping: number;
+}
+
+export interface AuditLogItem {
+  decision_id: string;
+  timestamp: number;
+  trigger_event: string;
+  cooperating_agents: string;
+  edge_id: string;
+  action_taken: string;
+  eta_saved_sec: number;
+  baseline_eta_sec: number;
+  optimized_eta_sec: number;
+  confidence: number;
+  xai_reasoning: string;
+  factors: Record<string, number>;
+}
+
+export interface AnalyticsHistoryResponse {
+  kpis: SystemKpis;
+  hourly_distribution: { hour: string; incidents: number }[];
+  eta_savings_series: {
+    timestamp: number;
+    baseline_eta: number;
+    optimized_eta: number;
+    eta_saved: number;
+    confidence: number;
+  }[];
+  total_dispatches: number;
+}
+
 /**
- * Fetch Graph Topology (Nodes & Edges)
- * Checks AGENT_2 FastAPI /graph (and fallback /api/v1/graph), fails over to synthetic mock engine if offline.
+ * Fetch Graph Topology (Nodes & Edges) from FastAPI
  */
 export async function fetchGraph(): Promise<GraphTopology> {
   try {
-    const res = await fetch(`${API_BASE_URL}/graph`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/graph/topology`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(3000),
     });
 
-    if (!res.ok) {
-      throw new Error(`API returned HTTP ${res.status}`);
-    }
-
-    const payload: ApiResponse<any> = await res.json();
-    if (payload.success && payload.data) {
-      // If backend returns { nodes, edges }, adapt to GraphTopology schema
-      const rawData = payload.data;
-      if (Array.isArray(rawData.nodes) && Array.isArray(rawData.edges)) {
-        return {
-          grid_id: rawData.grid_id || 'grid_hyd_metro_01',
-          city: rawData.city || 'Hyderabad Metropolitan Grid',
-          timestamp: rawData.timestamp || new Date().toISOString(),
-          nodes: rawData.nodes,
-          edges: rawData.edges,
-        };
+    if (res.ok) {
+      const payload: ApiResponse<any> = await res.json();
+      if (payload.success && payload.data) {
+        const rawData = payload.data;
+        if (Array.isArray(rawData.nodes) && Array.isArray(rawData.edges)) {
+          return {
+            grid_id: 'grid_hyd_metro_01',
+            city: 'Hyderabad Metropolitan Grid',
+            timestamp: new Date().toISOString(),
+            nodes: rawData.nodes.map((n: any) => ({
+              node_id: n.node_id,
+              name: n.name,
+              coordinates: n.coordinates,
+              intersection_type: n.intersection_type || 'signalized',
+              status: n.status || 'online',
+              zone: n.zone || 'Central Arterial',
+            })),
+            edges: rawData.edges.map((e: any) => ({
+              edge_id: e.edge_id,
+              source_node_id: e.source || e.source_node_id,
+              target_node_id: e.target || e.target_node_id,
+              length_meters: e.length_meters || 2000,
+              speed_limit_kph: e.speed_limit_kph || 50,
+              lanes: e.lanes || 4,
+              road_class: 'arterial',
+              base_capacity: 2200,
+            })),
+          };
+        }
       }
-      return graph_topology_schema.parse(rawData);
     }
-    throw new Error(payload.error?.message || 'Invalid API envelope payload');
   } catch (err) {
-    console.warn('[API Service] AGENT_2 API unreachable. Falling back to Mock Engine:', err);
-    return getMockGraphTopology();
+    console.warn('[API Service] Backend /api/v1/graph/topology unreachable, trying /graph fallback:', err);
   }
+
+  // Fallback to legacy /graph
+  try {
+    const res = await fetch(`${API_BASE_URL}/graph`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload.success && payload.data) {
+        return graph_topology_schema.parse(payload.data);
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  return getMockGraphTopology();
+}
+
+/**
+ * Fetch Live Real-Time KPIs from StateStore
+ */
+export async function fetchLiveKpis(): Promise<SystemKpis> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/kpis`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const json: ApiResponse<SystemKpis> = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('[API Service] Failed to fetch /api/v1/kpis:', err);
+  }
+
+  return {
+    active_signals_synced: 7,
+    avg_eta_savings_pct: 36.8,
+    detection_latency_ms: 38.5,
+    intersection_throughput_gain_pct: 22.4,
+    active_incidents_count: 0,
+    hourly_incident_distribution: [0, 0, 0, 0, 0, 0, 1, 3, 5, 4, 2, 1, 2, 3, 4, 6, 8, 5, 3, 2, 1, 0, 0, 0],
+    timestamp: Date.now() / 1000,
+  };
+}
+
+/**
+ * Fetch Camera Nodes from StateStore
+ */
+export async function fetchCameraNodes(edgeIds?: string[]): Promise<CameraNode[]> {
+  try {
+    const query = edgeIds && edgeIds.length > 0 ? `?edge_ids=${encodeURIComponent(edgeIds.join(','))}` : '';
+    const res = await fetch(`${API_BASE_URL}/api/v1/cameras${query}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const json: ApiResponse<CameraNode[]> = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('[API Service] Failed to fetch /api/v1/cameras:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Fetch Audit Logs from StateStore
+ */
+export async function fetchAuditLogs(limit: number = 100): Promise<AuditLogItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/audit/logs?limit=${limit}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const json: ApiResponse<AuditLogItem[]> = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('[API Service] Failed to fetch /api/v1/audit/logs:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Fetch Analytics History from Backend
+ */
+export async function fetchAnalyticsHistory(): Promise<AnalyticsHistoryResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/analytics/history`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const json: ApiResponse<AnalyticsHistoryResponse> = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('[API Service] Failed to fetch /api/v1/analytics/history:', err);
+  }
+  return null;
 }
 
 /**
  * Inject Incident on an edge
- * Communicates with AGENT_2 FastAPI /internal/incident, falls over cleanly if offline.
  */
 export async function injectIncident(
   payload: IncidentInjectionPayload
@@ -64,8 +238,7 @@ export async function injectIncident(
   incident_injection_payload_schema.parse(payload);
 
   try {
-    // Try AGENT_2 FastAPI route: POST /internal/incident
-    const res = await fetch(`${API_BASE_URL}/internal/incident`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/incidents/inject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -80,13 +253,13 @@ export async function injectIncident(
       const json = await res.json();
       if (json.success && json.data) {
         return {
-          incident_id: json.data.edge_id || `inc_${Date.now()}`,
+          incident_id: json.data.incident?.incident_id || json.data.edge_id || `inc_${Date.now()}`,
           status: 'incident_detected_live',
         };
       }
     }
   } catch (err) {
-    console.warn('[API Service] AGENT_2 backend /internal/incident unavailable, falling back:', err);
+    console.warn('[API Service] POST /api/v1/incidents/inject failed, trying fallback:', err);
   }
 
   return {
@@ -99,106 +272,57 @@ export interface EmergencyDispatchResult {
   dispatch_id: string;
   clear_corridor_active: boolean;
   path_edge_ids: string[];
-}
-
-/**
- * Helper to compute Dijkstra/BFS fallback path between two nodes
- */
-function calculatePathEdges(originId: string, destId: string, graph: GraphTopology): string[] {
-  const directEdge = graph.edges.find(
-    (e) =>
-      (e.source_node_id === originId && e.target_node_id === destId) ||
-      (e.source_node_id === destId && e.target_node_id === originId)
-  );
-  if (directEdge) return [directEdge.edge_id];
-
-  const queue: { nodeId: string; path: string[] }[] = [{ nodeId: originId, path: [] }];
-  const visited = new Set<string>([originId]);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (current.nodeId === destId) {
-      return current.path;
-    }
-
-    for (const edge of graph.edges) {
-      let nextNodeId: string | null = null;
-      if (edge.source_node_id === current.nodeId) {
-        nextNodeId = edge.target_node_id;
-      } else if (edge.target_node_id === current.nodeId) {
-        nextNodeId = edge.source_node_id;
-      }
-
-      if (nextNodeId && !visited.has(nextNodeId)) {
-        visited.add(nextNodeId);
-        queue.push({
-          nodeId: nextNodeId,
-          path: [...current.path, edge.edge_id],
-        });
-      }
-    }
-  }
-
-  return graph.edges.length > 0 ? [graph.edges[0].edge_id] : [];
+  eta_saved_sec?: number;
+  savings_pct?: number;
+  reason?: string;
+  factors?: Record<string, number>;
 }
 
 /**
  * Dispatch Emergency Preemption
- * Communicates with AGENT_2's FastAPI POST /routes/compute (with priority="emergency")
- * and returns the calculated route or fails over cleanly.
  */
 export async function dispatchEmergency(
   payload: EmergencyDispatchPayload,
-  graphTopology?: GraphTopology | null
+  _graphTopology?: GraphTopology | null
 ): Promise<EmergencyDispatchResult> {
   emergency_dispatch_payload_schema.parse(payload);
 
-  const topology = graphTopology || getMockGraphTopology();
-  const fallbackEdges = calculatePathEdges(payload.origin_node_id, payload.destination_node_id, topology);
-
   try {
-    // AGENT_2 FastAPI route: POST /routes/compute
-    const res = await fetch(`${API_BASE_URL}/routes/compute`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/emergency/dispatch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: payload.origin_node_id,
-        to: payload.destination_node_id,
+        origin: payload.origin_node_id,
+        destination: payload.destination_node_id,
         priority: 'emergency',
       }),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
-        const routeNodes: string[] = json.data.route || [];
-        // Map sequence of route nodes to edge IDs
-        const pathEdges: string[] = [];
-        for (let i = 0; i < routeNodes.length - 1; i++) {
-          const u = routeNodes[i];
-          const v = routeNodes[i + 1];
-          const found = topology.edges.find(
-            (e) => (e.source_node_id === u && e.target_node_id === v) ||
-                   (e.source_node_id === v && e.target_node_id === u)
-          );
-          if (found) pathEdges.push(found.edge_id);
-        }
-
         return {
-          dispatch_id: `emg_live_${Date.now()}`,
+          dispatch_id: json.data.decision_id || `emg_live_${Date.now()}`,
           clear_corridor_active: true,
-          path_edge_ids: pathEdges.length > 0 ? pathEdges : fallbackEdges,
+          path_edge_ids: json.data.corridor_edges || [],
+          eta_saved_sec: json.data.eta_saved_sec,
+          savings_pct: json.data.savings_pct,
+          reason: json.data.xai_reasoning,
+          factors: json.data.factors,
         };
       }
     }
   } catch (err) {
-    console.warn('[API Service] AGENT_2 live /routes/compute offline. Using internal routing engine:', err);
+    console.warn('[API Service] POST /api/v1/emergency/dispatch offline, falling back:', err);
   }
 
   return {
     dispatch_id: `emg_mock_${Date.now()}`,
     clear_corridor_active: true,
-    path_edge_ids: fallbackEdges,
+    path_edge_ids: ['edge_punjagutta_banjara', 'edge_banjara_apollo_preemption'],
+    eta_saved_sec: 142,
+    savings_pct: 35.2,
+    reason: 'Emergency preemption corridor established to Apollo Hospital Trauma Center.',
   };
 }

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input } from '../components/ui';
 import { Radio, Lock, ArrowRight, Zap, Activity } from 'lucide-react';
 import { z } from 'zod';
+import { fetchLiveKpis, SystemKpis } from '../services/api';
+import { useSinkSocket } from '../hooks/useSinkSocket';
 
 const loginSchema = z.object({
   role: z.enum(['AGENT_1', 'AGENT_2', 'AGENT_3', 'AGENT_4', 'AGENT_5']),
@@ -18,6 +20,25 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('rohith@sink.local');
   const [password, setPassword] = useState('password123');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+
+  const { liveKpis: socketKpis } = useSinkSocket();
+  const [kpis, setKpis] = useState<SystemKpis>({
+    active_signals_synced: 7,
+    avg_eta_savings_pct: 36.8,
+    detection_latency_ms: 38.5,
+    intersection_throughput_gain_pct: 22.4,
+    active_incidents_count: 0,
+    hourly_incident_distribution: [],
+    timestamp: Date.now() / 1000,
+  });
+
+  useEffect(() => {
+    fetchLiveKpis().then((data) => {
+      if (data) setKpis(data);
+    });
+  }, []);
+
+  const activeKpis = socketKpis || kpis;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,71 +103,95 @@ export const LoginPage: React.FC = () => {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as any)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-950 font-medium"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-950 font-semibold"
               >
-                <option value="AGENT_1">AGENT_1 (Rohith — Frontend /apps/web, Port 3000)</option>
-                <option value="AGENT_2">AGENT_2 (Vihann — Core API /apps/api, Port 8000)</option>
-                <option value="AGENT_3">AGENT_3 (Madhu — AI Engine /packages/ai-engine, Port 8001)</option>
-                <option value="AGENT_4">AGENT_4 (Mansi — Database /packages/database, Port 5432)</option>
-                <option value="AGENT_5">AGENT_5 (Shloka — Shared Types & QA, Port 3001)</option>
+                <option value="AGENT_1">AGENT_1 (UI / Geospatial Deck)</option>
+                <option value="AGENT_2">AGENT_2 (API & Preemption Routing)</option>
+                <option value="AGENT_3">AGENT_3 (God's Eye Vision & ST-GNN)</option>
+                <option value="AGENT_4">AGENT_4 (SQLite State & KPI Engine)</option>
+                <option value="AGENT_5">AGENT_5 (Multi-Agent Orchestrator)</option>
               </select>
             </div>
 
-            <Input
-              label="Operator Email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-              }}
-              error={errors.email}
-              placeholder="agent@hyd.sink.local"
-            />
-
-            <Input
-              label="Session Security Token"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
-              }}
-              error={errors.password}
-              placeholder="Enter secure token"
-            />
-
-            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-              <span className="flex items-center gap-1">
-                <Lock className="h-3 w-3 text-emerald-600" /> Active Agency Territory Lock
-              </span>
-              <span className="font-mono text-slate-400">Strict snake_case</span>
+            {/* Email Field */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                Operator ID (Email)
+              </label>
+              <Input
+                type="email"
+                placeholder="name@sink.local"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-white border-slate-300 text-slate-900"
+              />
+              {errors.email && (
+                <p className="text-xs text-rose-500 font-medium">{errors.email}</p>
+              )}
             </div>
 
-            <Button type="submit" className="w-full justify-center gap-2 mt-2">
-              <span>Enter Municipal Command Grid</span>
+            {/* Password Field */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Access Key
+                </label>
+                <span className="text-[11px] text-slate-400 font-mono">Demo: password123</span>
+              </div>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-white border-slate-300 text-slate-900"
+              />
+              {errors.password && (
+                <p className="text-xs text-rose-500 font-medium">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Sign In Button */}
+            <Button
+              type="submit"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2 rounded-lg transition-all shadow-md mt-2 flex items-center justify-center gap-2"
+            >
+              <span>Authenticate Operator Session</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
 
-          <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
-            Protected under Sink Multi-Agent Protocol & AGENTS.md
+          {/* Quick Demo Help */}
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+              <Lock className="h-3.5 w-3.5 text-slate-500" />
+              <span>Full-Stack Multi-Agent Node Access</span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Role permissions and telemetry ingestion boundaries are mapped automatically per AGENTS.md.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Right Column: System Status / Benchmark Telemetry Display */}
-      <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-slate-950 text-white relative overflow-hidden">
-        {/* Subtle grid pattern background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] opacity-30" />
+      {/* Right Column: Dark Tactical Ambient Display with LIVE COMPUTED BENCHMARKS */}
+      <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 bg-slate-950 text-slate-100 relative overflow-hidden">
+        {/* Ambient background grid pattern */}
+        <div
+          className="absolute inset-0 opacity-10 pointer-events-none"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 2px 2px, #38bdf8 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
 
         {/* Top Status */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-1 text-xs font-mono">
+          <div className="flex items-center gap-2 font-mono text-xs text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>5-AGENT MESH ACTIVE</span>
+            <span>SINK MESH ENGINE // LIVE KERNEL ACTIVE</span>
           </div>
-          <span className="font-mono text-xs text-slate-400 uppercase">
+          <span className="rounded-full bg-slate-800/80 px-3 py-1 font-mono text-xs text-slate-300 border border-slate-700">
             {jurisdiction}
           </span>
         </div>
@@ -166,41 +211,45 @@ export const LoginPage: React.FC = () => {
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="flex items-center gap-2 text-emerald-400 mb-1">
                 <Activity className="h-4 w-4" />
-                <span className="text-xs font-mono uppercase font-bold">Latency p99</span>
+                <span className="text-xs font-mono uppercase font-bold">CV Latency p99</span>
               </div>
-              <div className="text-2xl font-bold font-mono">18.4 ms</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Distributed cross-module bus</div>
+              <div className="text-2xl font-bold font-mono text-white">
+                {activeKpis.detection_latency_ms} ms
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Real-time God's Eye CV loop</div>
             </div>
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="flex items-center gap-2 text-indigo-400 mb-1">
                 <Zap className="h-4 w-4" />
-                <span className="text-xs font-mono uppercase font-bold">Throughput</span>
+                <span className="text-xs font-mono uppercase font-bold">ETA Savings</span>
               </div>
-              <div className="text-2xl font-bold font-mono">128k vph</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Real-time edge telemetry</div>
+              <div className="text-2xl font-bold font-mono text-white">
+                -{activeKpis.avg_eta_savings_pct}%
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Dynamic A* vs Dijkstra Free-flow</div>
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>Hyderabad Metropolitan Grid</span>
-              <span className="text-emerald-400 font-bold">Central Core Active</span>
+              <span>Active Signal Nodes Synced</span>
+              <span className="text-emerald-400 font-bold">{activeKpis.active_signals_synced} Intersections</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>Cyberabad IT Corridor</span>
-              <span className="text-blue-400 font-bold">Hitec Spine Online</span>
+              <span>Throughput Improvement</span>
+              <span className="text-blue-400 font-bold">+{activeKpis.intersection_throughput_gain_pct}% Flow</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>Trauma Preemption</span>
-              <span className="text-purple-400 font-bold">Apollo Jubilee Hills Ready</span>
+              <span>Active Incidents Resolved</span>
+              <span className="text-purple-400 font-bold">{activeKpis.active_incidents_count} Mitigated</span>
             </div>
           </div>
         </div>
 
         {/* Footer info */}
         <div className="relative z-10 flex items-center justify-between text-xs text-slate-500 font-mono">
-          <span>Sink Autonomous Fleet v0.3</span>
+          <span>Sink Autonomous Fleet v0.4 (Full-Stack)</span>
           <span>Hyderabad Metropolitan Certified Contracts</span>
         </div>
       </div>

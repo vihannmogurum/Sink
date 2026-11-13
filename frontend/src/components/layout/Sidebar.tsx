@@ -7,8 +7,7 @@ import {
   ShieldAlert, 
   ChevronLeft, 
   ChevronRight, 
-  Radio,
-  Terminal
+  Radio
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTrafficHud } from '../../context/TrafficHudContext';
@@ -24,7 +23,6 @@ const navItems: NavItem[] = [
   { name: 'Analytics', path: '/app/analytics', icon: BarChart3 },
   { name: 'Infrastructure Settings', path: '/app/settings', icon: Settings },
   { name: 'Agent Audit Logs', path: '/app/audit', icon: ShieldAlert },
-  { name: 'Debug Data Layer', path: '/app/debug-data', icon: Terminal },
 ];
 
 export const Sidebar: React.FC = () => {

@@ -14,12 +14,14 @@ import { cn } from '../../lib/utils';
 interface RouteSearchBarProps {
   graph: GraphTopology | null;
   onDispatchRoute: (originNodeId: string, destNodeId: string) => void;
+  onClearRoute?: () => void;
   isEmergencyActive?: boolean;
 }
 
 export const RouteSearchBar: React.FC<RouteSearchBarProps> = ({
   graph,
   onDispatchRoute,
+  onClearRoute,
   isEmergencyActive = false,
 }) => {
   const {
@@ -89,6 +91,7 @@ export const RouteSearchBar: React.FC<RouteSearchBarProps> = ({
     cancelDispatchMode();
     setOriginQuery('');
     setDestQuery('');
+    if (onClearRoute) onClearRoute();
   };
 
   return (

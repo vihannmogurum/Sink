@@ -111,7 +111,7 @@ export const SinkMapCanvas: React.FC<SinkMapCanvasProps> = ({
       const forecastHorizons =
         horizon === '15m' ? forecastUpdate?.horizon_15m : forecastUpdate?.horizon_30m;
 
-      if (forecastHorizons && graph) {
+      if (Array.isArray(forecastHorizons) && graph) {
         for (const fc of forecastHorizons) {
           map.set(fc.edge_id, {
             edge_id: fc.edge_id,

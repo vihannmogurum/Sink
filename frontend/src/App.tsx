@@ -6,7 +6,6 @@ import { TrafficMapPage } from './pages/TrafficMapPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
-import { DebugDataPage } from './pages/DebugDataPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
@@ -26,7 +25,6 @@ export const App: React.FC = () => {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="audit" element={<AuditLogsPage />} />
-          <Route path="debug-data" element={<DebugDataPage />} />
         </Route>
 
         {/* Strict Wildcard Catch-All / 404 Route */}

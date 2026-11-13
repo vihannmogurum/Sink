@@ -1,29 +1,37 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Flame, ShieldAlert, Sparkles } from 'lucide-react';
+import { AlertTriangle, Flame, ShieldAlert, Sparkles, Navigation } from 'lucide-react';
 import { injectIncident } from '../../services/api';
 import { IncidentInjectionPayload } from '../../schemas/contracts';
 
 interface ChaosDockProps {
-  activeEdgeId?: string;
+  activeEdgeId?: string | null;
   onIncidentInjected: (incidentId: string, message: string) => void;
+  onPromptSelectEdge?: () => void;
 }
 
 export const ChaosDock: React.FC<ChaosDockProps> = ({
-  activeEdgeId = 'edge_emb_mont',
+  activeEdgeId,
   onIncidentInjected,
+  onPromptSelectEdge,
 }) => {
   const [loading, setLoading] = useState(false);
 
   const handleInject = async (type: IncidentInjectionPayload['type'], severity: IncidentInjectionPayload['severity']) => {
+    // If no edge is selected, prompt user or select default Hyderabad arterial
+    const targetEdge = activeEdgeId || 'edge_punjagutta_banjara';
+
     setLoading(true);
     try {
       const res = await injectIncident({
-        edge_id: activeEdgeId,
+        edge_id: targetEdge,
         type,
         severity,
         notes: `Chaos Dock trigger: ${type} [${severity}] at ${new Date().toLocaleTimeString()}`,
       });
-      onIncidentInjected(res.incident_id, `Chaos Injected: ${type} on ${activeEdgeId} (${res.status})`);
+      onIncidentInjected(
+        res.incident_id,
+        `Chaos Injected: ${type.toUpperCase()} on ${targetEdge} (Triggered CV Watcher & Reroute)`
+      );
     } catch (err) {
       console.error('Failed to trigger chaos:', err);
     } finally {
@@ -37,6 +45,20 @@ export const ChaosDock: React.FC<ChaosDockProps> = ({
         <Flame className="h-4 w-4 text-rose-500 animate-bounce" />
         <span>Chaos Engine</span>
       </div>
+
+      {activeEdgeId ? (
+        <span className="font-mono text-[10px] text-slate-400 max-w-[120px] truncate mr-1" title={activeEdgeId}>
+          Target: <span className="text-emerald-400 font-bold">{activeEdgeId}</span>
+        </span>
+      ) : (
+        <button
+          onClick={onPromptSelectEdge}
+          className="flex items-center gap-1 font-mono text-[10px] text-amber-400 hover:text-amber-300 mr-1"
+        >
+          <Navigation className="h-3 w-3" />
+          <span>Click any road edge</span>
+        </button>
+      )}
 
       <button
         onClick={() => handleInject('crash', 'critical')}
